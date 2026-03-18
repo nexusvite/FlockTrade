@@ -1,8 +1,7 @@
 #!/bin/sh
-set -e
 
 echo "Running database migrations..."
-python manage.py migrate --noinput
+python manage.py migrate --noinput || echo "Migration failed, continuing..."
 
 echo "Creating admin user..."
 python manage.py create_admin || true
