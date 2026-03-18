@@ -85,14 +85,14 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("DB_NAME", "flocktrade"),
         "USER": os.environ.get("DB_USER", "trader"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "trader_pass"),
-        "HOST": os.environ.get("DB_HOST", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "ft_db_s3cur3_2026"),
+        "HOST": os.environ.get("DB_HOST", "flocktrade-db-b4tnfq"),
         "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
 
 # Redis / Channels
-REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://flocktrade-redis-7kna89:6379")
 
 CHANNEL_LAYERS = {
     "default": {
