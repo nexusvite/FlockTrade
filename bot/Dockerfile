@@ -21,10 +21,9 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --noinput 2>/dev/null || true
 
-# Create non-root user
-RUN adduser --disabled-password --no-create-home appuser
-USER appuser
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
 
 EXPOSE 8080
 
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8080", "flocktrade.asgi:application"]
+CMD ["./entrypoint.sh"]
