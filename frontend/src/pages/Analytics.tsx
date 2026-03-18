@@ -11,14 +11,16 @@ import {
   CartesianGrid,
 } from "recharts";
 
+const fmt = (v: unknown, d = 2) => v != null ? Number(v).toFixed(d) : "—";
+
 interface PerformanceData {
   win_rate: number;
   total_pnl: number;
   total_trades: number;
-  avg_pnl: number;
+  avg_pnl_per_trade: number;
   best_trade: number;
   worst_trade: number;
-  by_symbol: Record<string, { wins: number; losses: number; pnl: number }>;
+  by_symbol: { symbol: string; wins: number; losses: number; pnl: number }[];
 }
 
 export default function Analytics() {
@@ -28,17 +30,12 @@ export default function Analytics() {
   useEffect(() => {
     api.get("/performance/").then((r) => setPerf(r.data));
     api
-      .get("/performance/daily/")
-      .then((r) => setDailyStats(r.data))
+      .get("/daily-stats/")
+      .then((r) => setDailyStats(r.data.results ?? r.data))
       .catch(() => {});
   }, []);
 
-  const symbolData = perf
-    ? Object.entries(perf.by_symbol).map(([symbol, data]) => ({
-        symbol,
-        ...data,
-      }))
-    : [];
+  const symbolData = perf?.by_symbol ?? [];
 
   return (
     <div className="space-y-6">
@@ -47,12 +44,12 @@ export default function Analytics() {
       {/* Key metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {[
-          { label: "Win Rate", value: `${perf?.win_rate?.toFixed(1) ?? "—"}%` },
-          { label: "Total P&L", value: `$${perf?.total_pnl?.toFixed(2) ?? "—"}` },
+          { label: "Win Rate", value: `${fmt(perf?.win_rate, 1)}%` },
+          { label: "Total P&L", value: `$${fmt(perf?.total_pnl)}` },
           { label: "Total Trades", value: perf?.total_trades ?? "—" },
-          { label: "Avg P&L", value: `$${perf?.avg_pnl?.toFixed(2) ?? "—"}` },
-          { label: "Best Trade", value: `$${perf?.best_trade?.toFixed(2) ?? "—"}` },
-          { label: "Worst Trade", value: `$${perf?.worst_trade?.toFixed(2) ?? "—"}` },
+          { label: "Avg P&L", value: `$${fmt(perf?.avg_pnl_per_trade)}` },
+          { label: "Best Trade", value: `$${fmt(perf?.best_trade)}` },
+          { label: "Worst Trade", value: `$${fmt(perf?.worst_trade)}` },
         ].map((m) => (
           <div
             key={m.label}

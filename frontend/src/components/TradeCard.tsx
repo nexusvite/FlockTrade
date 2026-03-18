@@ -19,7 +19,7 @@ interface Trade {
 export function TradeCard({ trade }: { trade: Trade }) {
   const isBuy = trade.type === "BUY";
   const isOpen = !trade.exit_price;
-  const pnl = trade.pnl ?? 0;
+  const pnl = Number(trade.pnl ?? 0);
 
   return (
     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 hover:border-gray-600 transition-colors">

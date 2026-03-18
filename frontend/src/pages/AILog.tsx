@@ -74,7 +74,7 @@ export default function AILog() {
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
             <p className="text-xs text-gray-500">Total AI Cost</p>
             <p className="text-lg font-bold text-purple-400">
-              ${costs.total.toFixed(4)}
+              ${Number(costs.total).toFixed(4)}
             </p>
           </div>
           {Object.entries(costs.by_model).map(([model, cost]) => (
@@ -83,7 +83,7 @@ export default function AILog() {
               className="bg-gray-800/50 border border-gray-700 rounded-xl p-4"
             >
               <p className="text-xs text-gray-500 truncate">{model}</p>
-              <p className="text-lg font-bold">${(cost as number).toFixed(4)}</p>
+              <p className="text-lg font-bold">${Number(cost).toFixed(4)}</p>
             </div>
           ))}
         </div>
@@ -109,7 +109,7 @@ export default function AILog() {
                 </span>
               </div>
               <div className="text-xs text-gray-500">
-                {d.latency_ms}ms · ${d.cost_usd.toFixed(5)}
+                {d.latency_ms}ms · ${Number(d.cost_usd).toFixed(5)}
               </div>
             </div>
             <p className="text-sm text-gray-300">{d.reason}</p>

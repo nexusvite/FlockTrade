@@ -21,7 +21,7 @@ export function SRMap({ levels, currentPrice }: SRMapProps) {
     );
   }
 
-  const sorted = [...levels].sort((a, b) => b.price - a.price);
+  const sorted = [...levels].sort((a, b) => Number(b.price) - Number(a.price));
   const maxStrength = Math.max(...levels.map((l) => l.strength), 1);
 
   return (
@@ -33,7 +33,7 @@ export function SRMap({ levels, currentPrice }: SRMapProps) {
           const isResistance = level.direction === "resistance";
           const isNearPrice =
             currentPrice &&
-            Math.abs(level.price - currentPrice) / currentPrice < 0.001;
+            Math.abs(Number(level.price) - currentPrice) / currentPrice < 0.001;
 
           return (
             <div
@@ -43,7 +43,7 @@ export function SRMap({ levels, currentPrice }: SRMapProps) {
               }`}
             >
               <span className="w-20 font-mono text-right text-gray-300">
-                {level.price.toFixed(5)}
+                {Number(level.price).toFixed(5)}
               </span>
               <div className="flex-1 h-4 bg-gray-700/50 rounded-full overflow-hidden">
                 <div

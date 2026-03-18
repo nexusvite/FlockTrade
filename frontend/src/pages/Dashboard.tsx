@@ -21,6 +21,8 @@ interface BotStatus {
   last_scan_time: string | null;
 }
 
+const fmt = (v: unknown, d = 2) => v != null ? Number(v).toFixed(d) : "—";
+
 export default function Dashboard() {
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [trades, setTrades] = useState<never[]>([]);
@@ -48,19 +50,19 @@ export default function Dashboard() {
   const cards = [
     {
       label: "Balance",
-      value: `$${status?.account_balance?.toFixed(2) ?? "—"}`,
+      value: `$${fmt(status?.account_balance)}`,
       icon: DollarSign,
       color: "text-blue-400",
     },
     {
       label: "Total P&L",
-      value: `$${performance?.total_pnl?.toFixed(2) ?? "—"}`,
+      value: `$${fmt(performance?.total_pnl)}`,
       icon: TrendingUp,
-      color: (performance?.total_pnl ?? 0) >= 0 ? "text-profit" : "text-loss",
+      color: Number(performance?.total_pnl ?? 0) >= 0 ? "text-profit" : "text-loss",
     },
     {
       label: "Win Rate",
-      value: `${performance?.win_rate?.toFixed(1) ?? "—"}%`,
+      value: `${fmt(performance?.win_rate, 1)}%`,
       icon: BarChart3,
       color: "text-purple-400",
     },
