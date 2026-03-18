@@ -11,7 +11,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         username = os.environ.get("ADMIN_USERNAME", "admin")
         email = os.environ.get("ADMIN_EMAIL", "admin@flocktrade.local")
-        password = os.environ.get("ADMIN_PASSWORD", "")
+        password = os.environ.get("ADMIN_PASSWORD", "FlockTrade2026Admin")
 
         if not password:
             self.stderr.write("ADMIN_PASSWORD environment variable is not set.")
