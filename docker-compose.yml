@@ -1,0 +1,85 @@
+services:
+  mt5:
+    image: gmag11/metatrader5_vnc:2.0
+    container_name: mt5-trading
+    volumes:
+      - mt5_config:/config
+    ports:
+      - "3000:3000"
+      - "8001:8001"
+    environment:
+      - CUSTOM_USER=trader
+      - PASSWORD=${MT5_VNC_PASSWORD:-trader123}
+    restart: unless-stopped
+
+  bot:
+    build: ./bot
+    container_name: flocktrade-bot
+    command: daphne -b 0.0.0.0 -p 8080 flocktrade.asgi:application
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "check"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  celery:
+    build: ./bot
+    container_name: flocktrade-worker
+    command: celery -A flocktrade worker -l info -B
+    depends_on:
+      - bot
+      - redis
+    env_file: .env
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: flocktrade-dashboard
+    ports:
+      - "3001:80"
+    depends_on:
+      - bot
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: flocktrade-db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME:-flocktrade}
+      POSTGRES_USER: ${DB_USER:-trader}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-trader_pass}
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-trader}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: flocktrade-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mt5_config:
+  pg_data:

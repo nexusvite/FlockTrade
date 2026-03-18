@@ -1,0 +1,44 @@
+# Django core
+Django>=5.1,<6.1
+djangorestframework>=3.15
+djangorestframework-simplejwt>=5.3
+django-cors-headers>=4.3
+django-filter>=24.2
+
+# Channels + WebSocket
+daphne>=4.1
+channels>=4.1
+channels-redis>=4.2
+
+# Database
+psycopg[binary]>=3.1
+
+# Cache
+django-redis>=5.4
+
+# Task queue
+celery>=5.4
+redis>=5.0
+
+# MT5 Bridge
+rpyc>=6.0
+
+# AI / HTTP
+httpx>=0.27
+
+# Data analysis
+numpy>=1.26
+pandas>=2.2
+
+# Security
+argon2-cffi>=23.1
+
+# Production
+gunicorn>=22.0
+whitenoise>=6.6
+
+# Dev/Test
+pytest>=8.0
+pytest-django>=4.8
+pytest-asyncio>=0.23
+factory-boy>=3.3
