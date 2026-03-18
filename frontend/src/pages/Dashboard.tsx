@@ -42,7 +42,7 @@ export default function Dashboard() {
       setPerformance(p.data);
     });
 
-    api.get("/performance/daily/").then((r) => setStats(r.data)).catch(() => {});
+    api.get("/daily-stats/").then((r) => setStats(r.data.results ?? r.data)).catch(() => {});
   }, []);
 
   const cards = [

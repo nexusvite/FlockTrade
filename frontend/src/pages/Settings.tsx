@@ -42,7 +42,7 @@ export default function Settings() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post("/config/", config);
+      await api.patch("/config/", config);
       setMessage("Settings saved successfully.");
     } catch {
       setMessage("Failed to save settings.");
@@ -52,8 +52,8 @@ export default function Settings() {
   }
 
   async function togglePause() {
-    const endpoint = status?.is_paused ? "/control/resume/" : "/control/pause/";
-    await api.post(endpoint);
+    const action = status?.is_paused ? "resume" : "pause";
+    await api.post("/control/", { action });
     setStatus((s) => (s ? { ...s, is_paused: !s.is_paused } : s));
   }
 
