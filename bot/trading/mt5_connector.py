@@ -162,6 +162,7 @@ class MT5Connector:
         self._port: int = gc.mt5_port if gc else getattr(settings, "MT5_PORT", 8001)
         self._connected: bool = False
         self._retry_count: int = 0
+        self._last_error: str = ""
 
     # ------------------------------------------------------------------
     # Connection management
@@ -190,7 +191,8 @@ class MT5Connector:
                 return True
 
             except Exception as exc:
-                logger.warning("MT5 connect attempt %d failed: %s", attempt, exc)
+                self._last_error = f"{type(exc).__name__}: {exc}"
+                logger.warning("MT5 connect attempt %d failed: %s", attempt, self._last_error)
                 self._connected = False
                 if attempt < self.MAX_RETRIES:
                     backoff = min(

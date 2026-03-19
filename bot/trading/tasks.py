@@ -697,8 +697,10 @@ def health_check(self: Any) -> None:
 
     try:
         if not connector.ensure_connected():
-            bot_status.mark_disconnected("Health check: connection failed")
-            logger.warning("health_check: MT5 disconnected")
+            detail = getattr(connector, "_last_error", "unknown")
+            msg = f"Health check failed ({connector._host}:{connector._port}): {detail}"
+            bot_status.mark_disconnected(msg)
+            logger.warning("health_check: %s", msg)
             return
 
         account = connector.get_account_info()
