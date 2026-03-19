@@ -20,8 +20,8 @@ django-redis>=5.4
 celery>=5.4
 redis>=5.0
 
-# MT5 Bridge
-rpyc>=6.0
+# MT5 Bridge (must match rpyc version in gmag11/metatrader5_vnc)
+rpyc>=5.3,<6.0
 
 # AI / HTTP
 httpx>=0.27
