@@ -623,6 +623,8 @@ class MT5Connector:
             self._port,
         )
         mt5 = conn.modules.MetaTrader5
+        if not mt5.initialize():
+            logger.warning("mt5.initialize() returned False — terminal may not be logged in")
         return conn, mt5
 
 
