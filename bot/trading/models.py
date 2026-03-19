@@ -251,10 +251,12 @@ class BotStatus(models.Model):
         Reads thresholds from Django settings so they can be configured
         without code changes.
         """
+        from trading.config_service import get_global_config
         from django.conf import settings
 
-        max_losses = getattr(settings, "MAX_DAILY_LOSSES", 3)
-        max_loss_usd = getattr(settings, "MAX_DAILY_LOSS_USD", 100)
+        gc = get_global_config()
+        max_losses = gc.max_daily_losses if gc else getattr(settings, "MAX_DAILY_LOSSES", 3)
+        max_loss_usd = float(gc.max_daily_loss_usd) if gc else getattr(settings, "MAX_DAILY_LOSS_USD", 100)
 
         return self.daily_losses >= max_losses or float(self.daily_loss_usd) >= max_loss_usd
 
@@ -273,3 +275,102 @@ class BotStatus(models.Model):
         self.last_error = error
         self.last_health_check = timezone.now()
         self.save()
+
+
+class TradingConfigManager(models.Manager):
+    """Manager that enforces singleton semantics for TradingConfig."""
+
+    def get_config(self) -> "TradingConfig":
+        config, _ = self.get_or_create(pk=1)
+        return config
+
+
+class TradingConfig(models.Model):
+    """
+    Singleton model storing all global trading configuration.
+
+    Persists to DB so settings survive restarts. One row (pk=1).
+    Use TradingConfig.objects.get_config() to access.
+    """
+
+    # MT5 Connection
+    mt5_broker = models.CharField(
+        max_length=50, blank=True, default="custom",
+        help_text="Broker preset: exness, ftmo, custom",
+    )
+    mt5_account = models.CharField(max_length=50, blank=True, default="")
+    mt5_password = models.CharField(max_length=200, blank=True, default="")
+    mt5_server = models.CharField(max_length=100, blank=True, default="")
+    mt5_host = models.CharField(max_length=100, blank=True, default="mt5-trading")
+    mt5_port = models.IntegerField(default=8001)
+
+    # AI
+    openrouter_api_key = models.CharField(max_length=200, blank=True, default="")
+    scout_model = models.CharField(max_length=100, default="anthropic/claude-haiku-4.5")
+    confirmer_model = models.CharField(max_length=100, default="anthropic/claude-sonnet-4-6")
+    ai_timeout = models.IntegerField(default=15)
+
+    # Risk management
+    max_daily_losses = models.IntegerField(default=3)
+    max_daily_loss_usd = models.DecimalField(max_digits=10, decimal_places=2, default=100)
+
+    # Session hours (server time, 0-23)
+    asia_start = models.IntegerField(default=1)
+    asia_end = models.IntegerField(default=6)
+    london_start = models.IntegerField(default=8)
+    london_end = models.IntegerField(default=12)
+    ny_start = models.IntegerField(default=13)
+    ny_end = models.IntegerField(default=20)
+
+    # Instrument-type defaults (used when SymbolConfig doesn't override)
+    lot_size_forex = models.DecimalField(max_digits=8, decimal_places=2, default=1.0)
+    lot_size_gold = models.DecimalField(max_digits=8, decimal_places=2, default=0.1)
+    tp_pips_forex = models.IntegerField(default=2)
+    sl_pips_forex = models.IntegerField(default=5)
+    tp_pips_gold = models.IntegerField(default=20)
+    sl_pips_gold = models.IntegerField(default=50)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = TradingConfigManager()
+
+    class Meta:
+        db_table = "trading_config"
+        verbose_name = "Trading Config"
+        verbose_name_plural = "Trading Config"
+
+    def save(self, *args, **kwargs) -> None:
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"TradingConfig [broker={self.mt5_broker}]"
+
+
+class SymbolConfig(models.Model):
+    """
+    Per-symbol trading parameters.
+
+    Each traded symbol gets its own row with lot size, TP/SL pips,
+    and an enable toggle. If a field is null, the global TradingConfig
+    instrument-type default is used.
+    """
+
+    symbol = models.CharField(max_length=20, unique=True)
+    enabled = models.BooleanField(default=True)
+    lot_size = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    tp_pips = models.IntegerField(null=True, blank=True)
+    sl_pips = models.IntegerField(null=True, blank=True)
+    max_spread_pips = models.DecimalField(
+        max_digits=6, decimal_places=1, null=True, blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "symbol_config"
+        ordering = ["symbol"]
+
+    def __str__(self) -> str:
+        state = "ON" if self.enabled else "OFF"
+        return f"SymbolConfig {self.symbol} [{state}] lot={self.lot_size}"

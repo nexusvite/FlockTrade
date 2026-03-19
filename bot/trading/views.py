@@ -35,7 +35,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from trading.models import BotStatus, DailyStats, SRLevel, Trade
+from trading.models import BotStatus, DailyStats, SRLevel, SymbolConfig, Trade, TradingConfig
 from trading.serializers import (
     BotControlSerializer,
     BotStatusSerializer,
@@ -43,6 +43,9 @@ from trading.serializers import (
     DailyStatsSerializer,
     PerformanceSerializer,
     SRLevelSerializer,
+    SymbolConfigSerializer,
+    TradingConfigReadSerializer,
+    TradingConfigUpdateSerializer,
     TradeDetailSerializer,
     TradeListSerializer,
 )
@@ -366,79 +369,100 @@ class BotControlView(APIView):
 
 class ConfigView(APIView):
     """
-    GET  /api/config/   — Return current bot configuration
-    PATCH /api/config/  — Update configuration (Admin only)
+    GET  /api/config/   — Return global config + symbol configs
+    PATCH /api/config/  — Update global config (Admin only)
 
-    Settings are read from django.conf.settings and updated in-process.
-    Note: In-process updates are lost on worker restart. For persistence,
-    store config in a database model (future enhancement).
+    Config is persisted in the TradingConfig DB model (singleton pk=1).
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        config = {
-            "symbols": getattr(settings, "SYMBOLS", []),
-            "lot_size_forex": getattr(settings, "LOT_SIZE_FOREX", 1.0),
-            "lot_size_gold": getattr(settings, "LOT_SIZE_GOLD", 0.1),
-            "tp_pips_forex": getattr(settings, "TP_PIPS_FOREX", 2),
-            "sl_pips_forex": getattr(settings, "SL_PIPS_FOREX", 5),
-            "tp_pips_gold": getattr(settings, "TP_PIPS_GOLD", 20),
-            "sl_pips_gold": getattr(settings, "SL_PIPS_GOLD", 50),
-            "max_daily_losses": getattr(settings, "MAX_DAILY_LOSSES", 3),
-            "max_daily_loss_usd": getattr(settings, "MAX_DAILY_LOSS_USD", 100),
-            "scout_model": getattr(settings, "SCOUT_MODEL", ""),
-            "confirmer_model": getattr(settings, "CONFIRMER_MODEL", ""),
-            "asia_start": getattr(settings, "ASIA_START", 1),
-            "asia_end": getattr(settings, "ASIA_END", 6),
-            "london_start": getattr(settings, "LONDON_START", 8),
-            "london_end": getattr(settings, "LONDON_END", 12),
-            "ny_start": getattr(settings, "NY_START", 13),
-            "ny_end": getattr(settings, "NY_END", 20),
-        }
-        return Response(config)
+        config = TradingConfig.objects.get_config()
+        symbols = SymbolConfig.objects.all()
+        return Response({
+            "global": TradingConfigReadSerializer(config).data,
+            "symbols": SymbolConfigSerializer(symbols, many=True).data,
+        })
 
     def patch(self, request: Request) -> Response:
-        # Require admin role for config changes
         _require_admin(request)
 
-        serializer = ConfigUpdateSerializer(data=request.data, partial=True)
+        config = TradingConfig.objects.get_config()
+        serializer = TradingConfigUpdateSerializer(
+            config, data=request.data, partial=True,
+        )
         serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-        data = serializer.validated_data
-        updated: list[str] = []
+        from trading.config_service import invalidate_config_cache
+        invalidate_config_cache()
 
-        # Apply updates to the live settings object
-        # (persists for the lifetime of this worker process)
-        setting_map = {
-            "symbols": "SYMBOLS",
-            "lot_size_forex": "LOT_SIZE_FOREX",
-            "lot_size_gold": "LOT_SIZE_GOLD",
-            "tp_pips_forex": "TP_PIPS_FOREX",
-            "sl_pips_forex": "SL_PIPS_FOREX",
-            "tp_pips_gold": "TP_PIPS_GOLD",
-            "sl_pips_gold": "SL_PIPS_GOLD",
-            "max_daily_losses": "MAX_DAILY_LOSSES",
-            "max_daily_loss_usd": "MAX_DAILY_LOSS_USD",
-            "scout_model": "SCOUT_MODEL",
-            "confirmer_model": "CONFIRMER_MODEL",
-        }
+        logger.info("Config updated by %s: %s", request.user.username, list(request.data.keys()))
+        return Response(TradingConfigReadSerializer(config).data)
 
-        for field_name, setting_name in setting_map.items():
-            if field_name in data:
-                setattr(settings, setting_name, data[field_name])
-                updated.append(setting_name)
 
-        logger.info(
-            "Config updated by %s: %s", request.user.username, ", ".join(updated)
-        )
+class SymbolConfigListView(APIView):
+    """
+    GET  /api/config/symbols/  — List all symbol configs
+    POST /api/config/symbols/  — Add a new symbol
+    """
 
-        return Response(
-            {
-                "message": f"Updated: {', '.join(updated)}",
-                "updated_fields": updated,
-            }
-        )
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        symbols = SymbolConfig.objects.all()
+        return Response(SymbolConfigSerializer(symbols, many=True).data)
+
+    def post(self, request: Request) -> Response:
+        _require_admin(request)
+        serializer = SymbolConfigSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        from trading.config_service import invalidate_config_cache
+        invalidate_config_cache()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class SymbolConfigDetailView(APIView):
+    """
+    PATCH  /api/config/symbols/{symbol}/  — Update symbol config
+    DELETE /api/config/symbols/{symbol}/  — Remove symbol config
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request: Request, symbol: str) -> Response:
+        _require_admin(request)
+        try:
+            sc = SymbolConfig.objects.get(symbol=symbol)
+        except SymbolConfig.DoesNotExist:
+            return Response({"detail": "Symbol not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SymbolConfigSerializer(sc, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        from trading.config_service import invalidate_config_cache
+        invalidate_config_cache()
+
+        return Response(serializer.data)
+
+    def delete(self, request: Request, symbol: str) -> Response:
+        _require_admin(request)
+        try:
+            sc = SymbolConfig.objects.get(symbol=symbol)
+        except SymbolConfig.DoesNotExist:
+            return Response({"detail": "Symbol not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        sc.delete()
+
+        from trading.config_service import invalidate_config_cache
+        invalidate_config_cache()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------------------

@@ -93,7 +93,9 @@ def run_scanner(self: Any) -> None:
         is_running=True,
     )
 
-    symbols: list[str] = getattr(settings, "SYMBOLS", ["USDJPYm", "EURUSDm"])
+    from trading.config_service import get_active_symbols
+
+    symbols: list[str] = get_active_symbols()
     sr_engine = SREngine()
     strategy_engine = StrategyEngine()
 

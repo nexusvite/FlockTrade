@@ -283,12 +283,15 @@ class StrategyEngine:
         """
         now_hour = datetime.now(dt_timezone.utc).hour
 
-        asia_start = getattr(settings, "ASIA_START", 1)
-        asia_end = getattr(settings, "ASIA_END", 6)
-        london_start = getattr(settings, "LONDON_START", 8)
-        london_end = getattr(settings, "LONDON_END", 12)
-        ny_start = getattr(settings, "NY_START", 13)
-        ny_end = getattr(settings, "NY_END", 20)
+        from trading.config_service import get_global_config
+
+        gc = get_global_config()
+        asia_start = gc.asia_start if gc else getattr(settings, "ASIA_START", 1)
+        asia_end = gc.asia_end if gc else getattr(settings, "ASIA_END", 6)
+        london_start = gc.london_start if gc else getattr(settings, "LONDON_START", 8)
+        london_end = gc.london_end if gc else getattr(settings, "LONDON_END", 12)
+        ny_start = gc.ny_start if gc else getattr(settings, "NY_START", 13)
+        ny_end = gc.ny_end if gc else getattr(settings, "NY_END", 20)
 
         in_session = (
             asia_start <= now_hour < asia_end

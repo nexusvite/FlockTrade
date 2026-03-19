@@ -17,6 +17,8 @@ from trading.views import (
     DailyStatsListView,
     PerformanceView,
     SRLevelListView,
+    SymbolConfigDetailView,
+    SymbolConfigListView,
     TradeDetailView,
     TradeListView,
 )
@@ -54,7 +56,15 @@ urlpatterns = [
     path("control/", BotControlView.as_view(), name="bot-control"),
 
     # --- Configuration ---
-    # GET  /api/config/       — Current settings snapshot
-    # PATCH /api/config/      — Update settings (Admin only)
+    # GET  /api/config/       — Global config + symbol configs
+    # PATCH /api/config/      — Update global config (Admin only)
     path("config/", ConfigView.as_view(), name="config"),
+
+    # --- Symbol configuration ---
+    # GET  /api/config/symbols/           — List all symbol configs
+    # POST /api/config/symbols/           — Add a new symbol
+    path("config/symbols/", SymbolConfigListView.as_view(), name="symbol-config-list"),
+    # PATCH  /api/config/symbols/{symbol}/ — Update symbol config
+    # DELETE /api/config/symbols/{symbol}/ — Remove symbol config
+    path("config/symbols/<str:symbol>/", SymbolConfigDetailView.as_view(), name="symbol-config-detail"),
 ]

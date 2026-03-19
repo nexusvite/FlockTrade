@@ -155,8 +155,11 @@ class MT5Connector:
     def __init__(self) -> None:
         self._conn: Any = None          # rpyc connection
         self._mt5: Any = None           # remote mt5 module proxy
-        self._host: str = getattr(settings, "MT5_HOST", "mt5-trading")
-        self._port: int = getattr(settings, "MT5_PORT", 8001)
+        from trading.config_service import get_global_config
+
+        gc = get_global_config()
+        self._host: str = gc.mt5_host if gc else getattr(settings, "MT5_HOST", "mt5-trading")
+        self._port: int = gc.mt5_port if gc else getattr(settings, "MT5_PORT", 8001)
         self._connected: bool = False
         self._retry_count: int = 0
 

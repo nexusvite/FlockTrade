@@ -146,85 +146,33 @@ def get_lot_size(symbol: str) -> float:
     """
     Return the configured lot size for a symbol.
 
-    Reads from Django settings:
-        LOT_SIZE_FOREX (default 1.0)
-        LOT_SIZE_GOLD  (default 0.1)
-
-    Args:
-        symbol: MT5 symbol name.
-
-    Returns:
-        Lot size as a float.
+    Checks: SymbolConfig (per-symbol) → TradingConfig (global) → settings.py.
     """
-    instrument = detect_instrument(symbol)
+    from trading.config_service import get_lot_size as _db_lot_size
 
-    if instrument == InstrumentType.GOLD:
-        return float(getattr(settings, "LOT_SIZE_GOLD", 0.1))
-
-    if instrument == InstrumentType.OIL:
-        return float(getattr(settings, "LOT_SIZE_OIL", 0.1))
-
-    if instrument == InstrumentType.CRYPTO:
-        return float(getattr(settings, "LOT_SIZE_CRYPTO", 0.01))
-
-    # Default: forex
-    return float(getattr(settings, "LOT_SIZE_FOREX", 1.0))
+    return _db_lot_size(symbol)
 
 
 def get_tp_pips(symbol: str) -> int:
     """
     Return the take-profit distance in pips for a symbol.
 
-    Reads from Django settings:
-        TP_PIPS_FOREX (default 2)
-        TP_PIPS_GOLD  (default 20)
-
-    Args:
-        symbol: MT5 symbol name.
-
-    Returns:
-        TP distance in pips as an integer.
+    Checks: SymbolConfig (per-symbol) → TradingConfig (global) → settings.py.
     """
-    instrument = detect_instrument(symbol)
+    from trading.config_service import get_tp_pips as _db_tp_pips
 
-    if instrument == InstrumentType.GOLD:
-        return int(getattr(settings, "TP_PIPS_GOLD", 20))
-
-    if instrument == InstrumentType.OIL:
-        return int(getattr(settings, "TP_PIPS_OIL", 15))
-
-    if instrument == InstrumentType.CRYPTO:
-        return int(getattr(settings, "TP_PIPS_CRYPTO", 50))
-
-    return int(getattr(settings, "TP_PIPS_FOREX", 2))
+    return _db_tp_pips(symbol)
 
 
 def get_sl_pips(symbol: str) -> int:
     """
     Return the stop-loss distance in pips for a symbol.
 
-    Reads from Django settings:
-        SL_PIPS_FOREX (default 5)
-        SL_PIPS_GOLD  (default 50)
-
-    Args:
-        symbol: MT5 symbol name.
-
-    Returns:
-        SL distance in pips as an integer.
+    Checks: SymbolConfig (per-symbol) → TradingConfig (global) → settings.py.
     """
-    instrument = detect_instrument(symbol)
+    from trading.config_service import get_sl_pips as _db_sl_pips
 
-    if instrument == InstrumentType.GOLD:
-        return int(getattr(settings, "SL_PIPS_GOLD", 50))
-
-    if instrument == InstrumentType.OIL:
-        return int(getattr(settings, "SL_PIPS_OIL", 30))
-
-    if instrument == InstrumentType.CRYPTO:
-        return int(getattr(settings, "SL_PIPS_CRYPTO", 100))
-
-    return int(getattr(settings, "SL_PIPS_FOREX", 5))
+    return _db_sl_pips(symbol)
 
 
 def get_sl_price(symbol: str, entry_price: float, trade_type: str) -> float:
@@ -275,26 +223,22 @@ def get_max_spread_pips(symbol: str) -> float:
     """
     Return the maximum acceptable spread in pips for a symbol.
 
-    Wider instruments (gold, oil) tolerate larger spreads.
-
-    Args:
-        symbol: MT5 symbol name.
-
-    Returns:
-        Max spread threshold in pips.
+    Checks SymbolConfig first, then falls back to instrument-type defaults.
     """
-    instrument = detect_instrument(symbol)
+    from trading.config_service import get_max_spread_pips as _db_spread
 
+    result = _db_spread(symbol)
+    if result is not None:
+        return result
+
+    # Hardcoded instrument-type defaults if not in DB
+    instrument = detect_instrument(symbol)
     if instrument == InstrumentType.GOLD:
         return 30.0
-
     if instrument == InstrumentType.OIL:
         return 20.0
-
     if instrument == InstrumentType.CRYPTO:
         return 50.0
-
-    # Forex
     return 3.0
 
 

@@ -150,12 +150,15 @@ class AIEngine:
 
     @classmethod
     def from_settings(cls) -> "AIEngine":
-        """Instantiate AIEngine from Django settings."""
+        """Instantiate AIEngine from DB config, falling back to Django settings."""
+        from trading.config_service import get_global_config
+
+        gc = get_global_config()
         return cls(
-            scout_model=getattr(settings, "SCOUT_MODEL", "anthropic/claude-haiku-4.5"),
-            confirm_model=getattr(settings, "CONFIRMER_MODEL", "anthropic/claude-sonnet-4-6"),
-            api_key=getattr(settings, "OPENROUTER_API_KEY", ""),
-            timeout=getattr(settings, "AI_TIMEOUT", 15),
+            scout_model=gc.scout_model if gc else getattr(settings, "SCOUT_MODEL", "anthropic/claude-haiku-4.5"),
+            confirm_model=gc.confirmer_model if gc else getattr(settings, "CONFIRMER_MODEL", "anthropic/claude-sonnet-4-6"),
+            api_key=gc.openrouter_api_key if gc else getattr(settings, "OPENROUTER_API_KEY", ""),
+            timeout=gc.ai_timeout if gc else getattr(settings, "AI_TIMEOUT", 15),
         )
 
     # ------------------------------------------------------------------

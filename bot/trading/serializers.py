@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from trading.models import BotStatus, DailyStats, SRLevel, Trade
+from trading.models import BotStatus, DailyStats, SRLevel, SymbolConfig, Trade, TradingConfig
 
 
 # ---------------------------------------------------------------------------
@@ -299,19 +299,11 @@ class PerformanceSerializer(serializers.Serializer):
 
 
 class ConfigUpdateSerializer(serializers.Serializer):
-    """
-    Serializer for the ConfigView PATCH endpoint.
-
-    All fields are optional — only provided values are updated.
-    Values are written back to environment / Django settings cache
-    by the view.
-    """
+    """Legacy serializer kept for backwards compatibility."""
 
     symbols = serializers.ListField(
         child=serializers.CharField(max_length=20),
-        required=False,
-        min_length=1,
-        max_length=10,
+        required=False, min_length=1, max_length=10,
     )
     lot_size_forex = serializers.FloatField(required=False, min_value=0.01, max_value=100.0)
     lot_size_gold = serializers.FloatField(required=False, min_value=0.01, max_value=10.0)
@@ -323,3 +315,63 @@ class ConfigUpdateSerializer(serializers.Serializer):
     max_daily_loss_usd = serializers.FloatField(required=False, min_value=10.0, max_value=10000.0)
     scout_model = serializers.CharField(max_length=100, required=False)
     confirmer_model = serializers.CharField(max_length=100, required=False)
+
+
+# ---------------------------------------------------------------------------
+# TradingConfig serializers (DB-backed global config)
+# ---------------------------------------------------------------------------
+
+
+class TradingConfigReadSerializer(serializers.ModelSerializer):
+    """Read serializer that masks secrets."""
+
+    mt5_password = serializers.SerializerMethodField()
+    openrouter_api_key = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TradingConfig
+        exclude = ["id"]
+        read_only_fields = ["updated_at"]
+
+    def get_mt5_password(self, obj: TradingConfig) -> str:
+        if obj.mt5_password:
+            return "••••" + obj.mt5_password[-4:] if len(obj.mt5_password) > 4 else "••••"
+        return ""
+
+    def get_openrouter_api_key(self, obj: TradingConfig) -> str:
+        if obj.openrouter_api_key:
+            return "sk-••••" + obj.openrouter_api_key[-4:] if len(obj.openrouter_api_key) > 4 else "••••"
+        return ""
+
+
+class TradingConfigUpdateSerializer(serializers.ModelSerializer):
+    """Write serializer — all fields optional for partial updates."""
+
+    class Meta:
+        model = TradingConfig
+        exclude = ["id", "updated_at"]
+        extra_kwargs = {f.name: {"required": False} for f in TradingConfig._meta.get_fields() if hasattr(f, "name")}
+
+
+# ---------------------------------------------------------------------------
+# SymbolConfig serializer
+# ---------------------------------------------------------------------------
+
+
+class SymbolConfigSerializer(serializers.ModelSerializer):
+    """Full CRUD serializer for per-symbol configuration."""
+
+    instrument_type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SymbolConfig
+        fields = [
+            "id", "symbol", "enabled", "lot_size", "tp_pips",
+            "sl_pips", "max_spread_pips", "instrument_type",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "instrument_type", "created_at", "updated_at"]
+
+    def get_instrument_type(self, obj: SymbolConfig) -> str:
+        from trading.instrument import detect_instrument
+        return detect_instrument(obj.symbol).value
