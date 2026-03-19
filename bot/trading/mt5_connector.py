@@ -602,21 +602,25 @@ class MT5Connector:
         """
         Open the RPyC TCP connection and return (connection, mt5_module).
 
+        The gmag11/metatrader5_vnc image runs an RPyC **classic** server
+        via mt5linux. In classic mode the remote MetaTrader5 module is
+        accessed through ``conn.modules.MetaTrader5``, not ``conn.root``.
+
         Isolated here so tests can mock it cleanly.
         """
         try:
             import rpyc  # type: ignore[import]
+            import rpyc.utils.classic  # type: ignore[import]
         except ImportError as exc:
             raise MT5ConnectorError(
                 "rpyc is not installed. Add 'rpyc' to requirements.txt."
             ) from exc
 
-        conn = rpyc.connect(
+        conn = rpyc.classic.connect(
             self._host,
             self._port,
-            config={"sync_request_timeout": 30},
         )
-        mt5 = conn.root.mt5
+        mt5 = conn.modules.MetaTrader5
         return conn, mt5
 
 
