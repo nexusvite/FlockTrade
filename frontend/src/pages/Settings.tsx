@@ -28,6 +28,23 @@ export default function Settings() {
       .get("/status/")
       .then((r) => setStatus(r.data))
       .catch(() => {});
+    api
+      .get("/config/")
+      .then((r) => {
+        const d = r.data;
+        setConfig({
+          symbols: Array.isArray(d.symbols) ? d.symbols.join(",") : d.symbols ?? "",
+          lot_size_forex: String(d.lot_size_forex ?? "1.0"),
+          lot_size_gold: String(d.lot_size_gold ?? "0.1"),
+          tp_pips_forex: String(d.tp_pips_forex ?? "2"),
+          sl_pips_forex: String(d.sl_pips_forex ?? "5"),
+          max_daily_losses: String(d.max_daily_losses ?? "3"),
+          max_daily_loss_usd: String(d.max_daily_loss_usd ?? "100"),
+          scout_model: d.scout_model ?? "",
+          confirmer_model: d.confirmer_model ?? "",
+        });
+      })
+      .catch(() => {});
   }, []);
 
   if (user?.profile.role !== "admin") {
@@ -42,7 +59,17 @@ export default function Settings() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.patch("/config/", config);
+      await api.patch("/config/", {
+        symbols: config.symbols.split(",").map((s) => s.trim()),
+        lot_size_forex: parseFloat(config.lot_size_forex),
+        lot_size_gold: parseFloat(config.lot_size_gold),
+        tp_pips_forex: parseInt(config.tp_pips_forex),
+        sl_pips_forex: parseInt(config.sl_pips_forex),
+        max_daily_losses: parseInt(config.max_daily_losses),
+        max_daily_loss_usd: parseFloat(config.max_daily_loss_usd),
+        scout_model: config.scout_model,
+        confirmer_model: config.confirmer_model,
+      });
       setMessage("Settings saved successfully.");
     } catch {
       setMessage("Failed to save settings.");
