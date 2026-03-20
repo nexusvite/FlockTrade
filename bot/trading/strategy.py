@@ -157,14 +157,14 @@ class StrategyEngine:
         nearest_level: SRLevelData | None = None
 
         # ---------- Filter 1: Session ----------
-        result = self.session_filter(indicators)
+        result = self.session_filter(indicators, symbol=symbol)
         self._record(signal, "session_filter", result)
         if result.status == SKIP:
             signal.action = "SKIP"
             return signal
 
         # ---------- Filter 2: Spread ----------
-        result = self.spread_filter(indicators, pip_size)
+        result = self.spread_filter(indicators, pip_size, symbol=symbol)
         self._record(signal, "spread_filter", result)
         if result.status == SKIP:
             signal.action = "SKIP"
@@ -275,12 +275,19 @@ class StrategyEngine:
     # Filter 1 — Session filter
     # ------------------------------------------------------------------
 
-    def session_filter(self, indicators: Indicators) -> FilterResult:
+    def session_filter(self, indicators: Indicators, symbol: str = "") -> FilterResult:
         """
         Allow trading only during Asia, London, or New York sessions.
 
+        Crypto symbols (24/7 market) always pass this filter.
         Hours read from Django settings as integers in server (UTC) time.
         """
+        # Crypto markets trade 24/7 — bypass session filter
+        if symbol:
+            from trading.instrument import detect_instrument, InstrumentType
+            if detect_instrument(symbol) == InstrumentType.CRYPTO:
+                return FilterResult(PASS, "Crypto: 24/7 market, session filter bypassed")
+
         now_hour = datetime.now(dt_timezone.utc).hour
 
         from trading.config_service import get_global_config
@@ -313,19 +320,23 @@ class StrategyEngine:
     # ------------------------------------------------------------------
 
     def spread_filter(
-        self, indicators: Indicators, pip_size: float
+        self, indicators: Indicators, pip_size: float, symbol: str = ""
     ) -> FilterResult:
         """
         Block trades when spread is too wide.
 
-        Max spread threshold is 3 pips for forex, 50 pips for gold.
-        The caller passes pip_size so gold (0.1 pip) is handled correctly.
+        Uses per-symbol max spread from config, falling back to instrument
+        type defaults (3 pips forex, 50 pips gold/crypto).
         """
-        max_spread_pips = 3.0
+        if symbol:
+            from trading.instrument import get_max_spread_pips
+            max_spread_pips = get_max_spread_pips(symbol)
+        else:
+            max_spread_pips = 3.0
         current_spread_pips = indicators.current_spread_pips
 
         if current_spread_pips <= max_spread_pips:
-            return FilterResult(PASS, f"Spread ok: {current_spread_pips:.1f} pips")
+            return FilterResult(PASS, f"Spread ok: {current_spread_pips:.1f} pips (max {max_spread_pips})")
         return FilterResult(
             SKIP,
             f"Spread too wide: {current_spread_pips:.1f} pips (max {max_spread_pips})",

@@ -38,7 +38,7 @@ class Trade(models.Model):
     exit_price = models.DecimalField(max_digits=12, decimal_places=5, null=True, blank=True)
     sl = models.DecimalField(max_digits=12, decimal_places=5, null=True, blank=True)
     tp = models.DecimalField(max_digits=12, decimal_places=5, null=True, blank=True)
-    lot_size = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    lot_size = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True)
 
     # Financial result
     pnl = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, db_index=True)
@@ -389,7 +389,7 @@ class SymbolConfig(models.Model):
 
     symbol = models.CharField(max_length=20, unique=True)
     enabled = models.BooleanField(default=True)
-    lot_size = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    lot_size = models.DecimalField(max_digits=12, decimal_places=6, null=True, blank=True)
     tp_pips = models.IntegerField(null=True, blank=True)
     sl_pips = models.IntegerField(null=True, blank=True)
     max_spread_pips = models.DecimalField(

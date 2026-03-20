@@ -375,23 +375,10 @@ class BinanceConnector:
             from trading.models import Trade
             db_trade = Trade.objects.filter(
                 exit_time__isnull=True,
-            ).filter(
-                models_Q_binance_order_id=str(ticket),
+                binance_order_id=str(ticket),
             ).first()
         except Exception:
             db_trade = None
-
-        if db_trade is None:
-            # Fallback: try to find by iterating open trades
-            try:
-                from trading.models import Trade
-                from django.db.models import Q
-                db_trade = Trade.objects.filter(
-                    exit_time__isnull=True,
-                    binance_order_id=str(ticket),
-                ).first()
-            except Exception:
-                pass
 
         if db_trade is None:
             return TradeResult(

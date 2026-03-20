@@ -229,7 +229,7 @@ MT5_ACCOUNT = os.environ.get("MT5_ACCOUNT", "")
 MT5_PASSWORD = os.environ.get("MT5_PASSWORD", "")
 MT5_SERVER = os.environ.get("MT5_SERVER", "")
 
-SYMBOLS = os.environ.get("SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
+SYMBOLS = os.environ.get("SYMBOLS", "BTCUSDT,ETHUSDT,XRPUSDT").split(",")
 LOT_SIZE_FOREX = float(os.environ.get("LOT_SIZE_FOREX", 1.0))
 LOT_SIZE_GOLD = float(os.environ.get("LOT_SIZE_GOLD", 0.1))
 TP_PIPS_FOREX = int(os.environ.get("TP_PIPS_FOREX", 2))

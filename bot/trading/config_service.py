@@ -106,10 +106,15 @@ def get_lot_size(symbol: str) -> float:
     if gc:
         if itype == InstrumentType.GOLD:
             return float(gc.lot_size_gold)
+        if itype == InstrumentType.CRYPTO:
+            # Crypto default: use lot_size_forex as fallback (or 0.01)
+            return float(getattr(settings, "LOT_SIZE_CRYPTO", 0.01))
         return float(gc.lot_size_forex)
 
     if itype == InstrumentType.GOLD:
         return float(getattr(settings, "LOT_SIZE_GOLD", 0.1))
+    if itype == InstrumentType.CRYPTO:
+        return float(getattr(settings, "LOT_SIZE_CRYPTO", 0.01))
     return float(getattr(settings, "LOT_SIZE_FOREX", 1.0))
 
 
