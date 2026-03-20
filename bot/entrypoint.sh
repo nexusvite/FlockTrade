@@ -1,5 +1,8 @@
 #!/bin/sh
 
+echo "Fixing schema for Binance migration..."
+python manage.py fix_schema || echo "Schema fix skipped"
+
 echo "Running database migrations..."
 python manage.py migrate --noinput || echo "Migration failed, continuing..."
 
