@@ -21,9 +21,17 @@ class Trade(models.Model):
         BUY = "BUY", "Buy"
         SELL = "SELL", "Sell"
 
+    class AccountType(models.TextChoices):
+        DEMO = "DEMO", "Demo"
+        REAL = "REAL", "Real"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     symbol = models.CharField(max_length=20, db_index=True)
     type = models.CharField(max_length=4, choices=TradeType.choices)
+    account_type = models.CharField(
+        max_length=4, choices=AccountType.choices, default="DEMO", db_index=True,
+    )
+    binance_order_id = models.CharField(max_length=50, blank=True, default="")
 
     # Price levels
     entry_price = models.DecimalField(max_digits=12, decimal_places=5, null=True, blank=True)
@@ -143,10 +151,18 @@ class DailyStats(models.Model):
     """
     Aggregated daily trading performance statistics.
 
-    One row per calendar day. Updated at trade close and end-of-day.
+    One row per (date, account_type). Updated at trade close and end-of-day.
     """
 
-    date = models.DateField(primary_key=True)
+    class AccountType(models.TextChoices):
+        DEMO = "DEMO", "Demo"
+        REAL = "REAL", "Real"
+
+    id = models.AutoField(primary_key=True)
+    date = models.DateField(db_index=True)
+    account_type = models.CharField(
+        max_length=4, choices=AccountType.choices, default="DEMO", db_index=True,
+    )
     trades = models.IntegerField(default=0)
     wins = models.IntegerField(default=0)
     losses = models.IntegerField(default=0)
@@ -163,9 +179,13 @@ class DailyStats(models.Model):
     class Meta:
         db_table = "daily_stats"
         ordering = ["-date"]
+        unique_together = [("date", "account_type")]
+        indexes = [
+            models.Index(fields=["date", "account_type"]),
+        ]
 
     def __str__(self) -> str:
-        return f"DailyStats {self.date}: {self.wins}W/{self.losses}L PnL={self.pnl}"
+        return f"DailyStats {self.date} [{self.account_type}]: {self.wins}W/{self.losses}L PnL={self.pnl}"
 
     @property
     def win_rate(self) -> float:
@@ -175,35 +195,47 @@ class DailyStats(models.Model):
         return round((self.wins / self.trades) * 100, 2)
 
     @classmethod
-    def get_today(cls) -> "DailyStats":
-        """Get or create today's stats row."""
-        stats, _ = cls.objects.get_or_create(date=timezone.now().date())
+    def get_today(cls, account_type: str = "DEMO") -> "DailyStats":
+        """Get or create today's stats row for the given account type."""
+        stats, _ = cls.objects.get_or_create(
+            date=timezone.now().date(),
+            account_type=account_type.upper(),
+        )
         return stats
 
 
 class BotStatusManager(models.Manager):
-    """Manager that enforces singleton semantics for BotStatus."""
+    """Manager for per-account BotStatus rows."""
 
-    def get_status(self) -> "BotStatus":
-        """Return the singleton BotStatus row, creating it if absent."""
-        status, _ = self.get_or_create(pk=1)
+    def get_status(self, account_type: str = "DEMO") -> "BotStatus":
+        """Return the BotStatus row for the given account type, creating if absent."""
+        status, _ = self.get_or_create(account_type=account_type.upper())
         return status
 
 
 class BotStatus(models.Model):
     """
-    Singleton model representing the current state of the trading bot.
+    Per-account bot status model.
 
-    Only one row should ever exist (pk=1). Use BotStatus.objects.get_status()
-    to safely access or create it.
+    One row per account_type (DEMO / REAL). Use
+    BotStatus.objects.get_status(account_type) to access.
     """
+
+    class AccountType(models.TextChoices):
+        DEMO = "DEMO", "Demo"
+        REAL = "REAL", "Real"
+
+    account_type = models.CharField(
+        max_length=4, choices=AccountType.choices, default="DEMO",
+        unique=True, db_index=True,
+    )
 
     # Bot state flags
     is_running = models.BooleanField(default=False)
     is_paused = models.BooleanField(default=False)
 
-    # MT5 connectivity
-    connected_to_mt5 = models.BooleanField(default=False)
+    # Exchange connectivity (renamed from connected_to_mt5)
+    connected_to_exchange = models.BooleanField(default=False)
     last_scan_time = models.DateTimeField(null=True, blank=True)
     last_health_check = models.DateTimeField(null=True, blank=True)
 
@@ -235,13 +267,8 @@ class BotStatus(models.Model):
         state = "RUNNING" if self.is_running else "STOPPED"
         if self.is_paused:
             state = "PAUSED"
-        mt5 = "MT5:OK" if self.connected_to_mt5 else "MT5:DISCONNECTED"
-        return f"BotStatus [{state}] [{mt5}] balance={self.account_balance}"
-
-    def save(self, *args, **kwargs) -> None:
-        """Force singleton by always using pk=1."""
-        self.pk = 1
-        super().save(*args, **kwargs)
+        conn = "CONNECTED" if self.connected_to_exchange else "DISCONNECTED"
+        return f"BotStatus [{self.account_type}] [{state}] [{conn}] balance={self.account_balance}"
 
     @property
     def is_circuit_breaker_triggered(self) -> bool:
@@ -261,8 +288,8 @@ class BotStatus(models.Model):
         return self.daily_losses >= max_losses or float(self.daily_loss_usd) >= max_loss_usd
 
     def mark_connected(self, balance: float, equity: float) -> None:
-        """Update MT5 connection state and account snapshot."""
-        self.connected_to_mt5 = True
+        """Update exchange connection state and account snapshot."""
+        self.connected_to_exchange = True
         self.account_balance = balance
         self.account_equity = equity
         self.last_health_check = timezone.now()
@@ -270,11 +297,20 @@ class BotStatus(models.Model):
         self.save()
 
     def mark_disconnected(self, error: str = "") -> None:
-        """Mark MT5 as disconnected and record the error message."""
-        self.connected_to_mt5 = False
+        """Mark exchange as disconnected and record the error message."""
+        self.connected_to_exchange = False
         self.last_error = error
         self.last_health_check = timezone.now()
         self.save()
+
+    # Backward-compatible property for code that references connected_to_mt5
+    @property
+    def connected_to_mt5(self) -> bool:
+        return self.connected_to_exchange
+
+    @connected_to_mt5.setter
+    def connected_to_mt5(self, value: bool) -> None:
+        self.connected_to_exchange = value
 
 
 class TradingConfigManager(models.Manager):

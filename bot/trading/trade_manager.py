@@ -125,7 +125,7 @@ class TradeManager:
                        singleton from mt5_connector.get_connector() is used.
         """
         if connector is None:
-            from trading.mt5_connector import get_connector
+            from trading.binance_connector import get_connector
             self._connector = get_connector()
         else:
             self._connector = connector

@@ -22,6 +22,10 @@ redis>=5.0
 
 # MT5 Bridge (must match rpyc version in gmag11/metatrader5_vnc)
 rpyc>=5.3,<6.0
+mt5linux>=1.0
+
+# Binance
+python-binance>=1.0.19
 
 # AI / HTTP
 httpx>=0.27

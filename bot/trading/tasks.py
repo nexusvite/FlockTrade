@@ -61,7 +61,7 @@ def run_scanner(self: Any) -> None:
         - MT5 is disconnected
     """
     from trading.models import BotStatus, Trade, SRLevel as SRLevelModel
-    from trading.mt5_connector import get_connector, MT5ConnectorError
+    from trading.binance_connector import get_connector, ConnectorError
     from trading.sr_engine import SREngine, OHLCBar
     from trading.strategy import StrategyEngine, Indicators
     from trading.indicators import calculate_rsi, calculate_ema
@@ -70,25 +70,47 @@ def run_scanner(self: Any) -> None:
         get_tp_price, get_sl_price, get_max_spread_pips,
     )
 
-    bot_status = BotStatus.objects.get_status()
+    for account_type in ("DEMO", "REAL"):
+        try:
+            _run_scanner_for_account(account_type)
+        except Exception as exc:
+            logger.error(
+                "Scanner: unhandled error for %s account: %s",
+                account_type, exc, exc_info=True,
+            )
+
+
+def _run_scanner_for_account(account_type: str) -> None:
+    """Run the scanner loop for a single account type."""
+    from trading.models import BotStatus, Trade, SRLevel as SRLevelModel
+    from trading.binance_connector import get_connector, ConnectorError
+    from trading.sr_engine import SREngine, OHLCBar
+    from trading.strategy import StrategyEngine, Indicators
+    from trading.indicators import calculate_rsi, calculate_ema
+    from trading.instrument import (
+        detect_instrument, get_pip_size, get_lot_size,
+        get_tp_price, get_sl_price, get_max_spread_pips,
+    )
+
+    bot_status = BotStatus.objects.get_status(account_type)
 
     # --- Guard checks ---
     if bot_status.is_paused:
-        logger.info("Scanner: bot is paused, skipping scan")
+        logger.info("Scanner [%s]: bot is paused, skipping scan", account_type)
         return
 
     if bot_status.is_circuit_breaker_triggered:
-        logger.warning("Scanner: circuit breaker active, skipping scan")
+        logger.warning("Scanner [%s]: circuit breaker active, skipping scan", account_type)
         return
 
-    connector = get_connector()
+    connector = get_connector(account_type)
     if not connector.ensure_connected():
-        logger.error("Scanner: MT5 not connected, skipping scan")
-        bot_status.mark_disconnected("Scanner: MT5 unreachable")
+        logger.error("Scanner [%s]: exchange not connected, skipping scan", account_type)
+        bot_status.mark_disconnected(f"Scanner: exchange unreachable [{account_type}]")
         return
 
     # Update last scan time
-    BotStatus.objects.filter(pk=1).update(
+    BotStatus.objects.filter(account_type=account_type).update(
         last_scan_time=timezone.now(),
         is_running=True,
     )
@@ -112,11 +134,12 @@ def run_scanner(self: Any) -> None:
                 sr_engine=sr_engine,
                 strategy_engine=strategy_engine,
                 traded_level_prices=traded_level_prices,
+                account_type=account_type,
             )
         except Exception as exc:
-            logger.error("Scanner: unhandled error scanning %s: %s", symbol, exc, exc_info=True)
+            logger.error("Scanner [%s]: unhandled error scanning %s: %s", account_type, symbol, exc, exc_info=True)
 
-    logger.debug("Scanner: completed scan of %d symbols", len(symbols))
+    logger.debug("Scanner [%s]: completed scan of %d symbols", account_type, len(symbols))
 
 
 def _scan_symbol(
@@ -125,6 +148,7 @@ def _scan_symbol(
     sr_engine: Any,
     strategy_engine: Any,
     traded_level_prices: set[float],
+    account_type: str = "DEMO",
 ) -> None:
     """
     Single-symbol scan logic extracted from run_scanner for clarity.
@@ -132,7 +156,7 @@ def _scan_symbol(
     Intentionally not a Celery task itself — called synchronously within
     the scanner's time budget.
     """
-    from trading.mt5_connector import MT5ConnectorError
+    from trading.binance_connector import ConnectorError
     from trading.sr_engine import OHLCBar
     from trading.strategy import Indicators
     from trading.indicators import calculate_rsi, calculate_ema
@@ -159,7 +183,7 @@ def _scan_symbol(
                 )
                 for c in raw
             ]
-        except MT5ConnectorError as exc:
+        except ConnectorError as exc:
             logger.warning("Cannot fetch %s %s candles: %s", symbol, tf, exc)
             if tf in ("M5", "M15"):
                 # Critical timeframes — skip this symbol
@@ -171,7 +195,7 @@ def _scan_symbol(
         tick = connector.get_tick(symbol)
         current_price = (tick.bid + tick.ask) / 2
         spread_pips = tick.spread_points / pip_size
-    except MT5ConnectorError as exc:
+    except ConnectorError as exc:
         logger.warning("Cannot get tick for %s: %s", symbol, exc)
         return
 
@@ -186,7 +210,7 @@ def _scan_symbol(
 
     # Determine bars since start from BotStatus
     from trading.models import BotStatus
-    bot_status = BotStatus.objects.get_status()
+    bot_status = BotStatus.objects.get_status(account_type)
     bars_since_start = 999  # Default: warmup complete (status doesn't track per-symbol yet)
 
     indicators = Indicators(
@@ -259,6 +283,7 @@ def _scan_symbol(
         confirm_result=confirm_result,
         connector=connector,
         pip_size=pip_size,
+        account_type=account_type,
     )
 
 
@@ -391,6 +416,7 @@ def _open_trade(
     confirm_result: dict[str, Any],
     connector: Any,
     pip_size: float,
+    account_type: str = "DEMO",
 ) -> None:
     """
     Execute a market order and persist the Trade record.
@@ -431,6 +457,8 @@ def _open_trade(
     trade = Trade.objects.create(
         symbol=symbol,
         type=signal.action,
+        account_type=account_type,
+        binance_order_id=str(result.ticket) if result.ticket else "",
         entry_price=result.price,
         sl=sl,
         tp=tp,
@@ -484,39 +512,60 @@ def monitor_exits(self: Any) -> None:
         4. Execute close if recommended
     """
     from trading.models import Trade, BotStatus
-    from trading.mt5_connector import get_connector, MT5ConnectorError
+    from trading.binance_connector import get_connector, ConnectorError
     from trading.trade_manager import TradeManager, ActiveTrade
     from trading.sr_engine import SRLevelData
     from trading.instrument import get_pip_size
 
-    bot_status = BotStatus.objects.get_status()
+    for account_type in ("DEMO", "REAL"):
+        try:
+            _monitor_exits_for_account(account_type)
+        except Exception as exc:
+            logger.error(
+                "monitor_exits: unhandled error for %s: %s",
+                account_type, exc, exc_info=True,
+            )
+
+
+def _monitor_exits_for_account(account_type: str) -> None:
+    """Monitor exits for a single account type."""
+    from trading.models import Trade, BotStatus
+    from trading.binance_connector import get_connector, ConnectorError
+    from trading.trade_manager import TradeManager, ActiveTrade
+    from trading.sr_engine import SRLevelData
+    from trading.instrument import get_pip_size
+
+    bot_status = BotStatus.objects.get_status(account_type)
 
     if bot_status.is_paused:
         return
 
-    connector = get_connector()
+    connector = get_connector(account_type)
     if not connector.ensure_connected():
-        logger.error("monitor_exits: MT5 not connected")
+        logger.error("monitor_exits [%s]: exchange not connected", account_type)
         return
 
     manager = TradeManager(connector=connector)
 
-    # Fetch all open trades from the database
-    open_trades = Trade.objects.filter(exit_time__isnull=True).select_related()
+    # Fetch open trades for this account type
+    open_trades = Trade.objects.filter(
+        exit_time__isnull=True,
+        account_type=account_type,
+    ).select_related()
 
     if not open_trades.exists():
-        logger.debug("monitor_exits: no open trades")
+        logger.debug("monitor_exits [%s]: no open trades", account_type)
         return
 
-    logger.debug("monitor_exits: checking %d open trade(s)", open_trades.count())
+    logger.debug("monitor_exits [%s]: checking %d open trade(s)", account_type, open_trades.count())
 
     for db_trade in open_trades:
         try:
             _monitor_single_trade(db_trade, connector, manager)
         except Exception as exc:
             logger.error(
-                "monitor_exits: error processing trade %s: %s",
-                db_trade.pk, exc, exc_info=True,
+                "monitor_exits [%s]: error processing trade %s: %s",
+                account_type, db_trade.pk, exc, exc_info=True,
             )
 
 
@@ -525,7 +574,7 @@ def _monitor_single_trade(db_trade: Any, connector: Any, manager: Any) -> None:
     from trading.sr_engine import SRLevelData
     from trading.instrument import get_pip_size
     from trading.trade_manager import ActiveTrade
-    from trading.mt5_connector import MT5ConnectorError
+    from trading.binance_connector import ConnectorError
 
     pip_size = get_pip_size(db_trade.symbol)
 
@@ -554,7 +603,7 @@ def _monitor_single_trade(db_trade: Any, connector: Any, manager: Any) -> None:
     try:
         tick = connector.get_tick(db_trade.symbol)
         current_price = (tick.bid + tick.ask) / 2
-    except MT5ConnectorError as exc:
+    except ConnectorError as exc:
         logger.warning("Cannot get tick for %s: %s", db_trade.symbol, exc)
         return
 
@@ -690,33 +739,34 @@ def health_check(self: Any) -> None:
     Updates account balance/equity snapshot and connection state.
     """
     from trading.models import BotStatus
-    from trading.mt5_connector import get_connector, MT5ConnectorError
+    from trading.binance_connector import get_connector, ConnectorError
 
-    connector = get_connector()
-    bot_status = BotStatus.objects.get_status()
+    for account_type in ("DEMO", "REAL"):
+        connector = get_connector(account_type)
+        bot_status = BotStatus.objects.get_status(account_type)
 
-    try:
-        if not connector.ensure_connected():
-            detail = getattr(connector, "_last_error", "unknown")
-            msg = f"Health check failed ({connector._host}:{connector._port}): {detail}"
-            bot_status.mark_disconnected(msg)
-            logger.warning("health_check: %s", msg)
-            return
+        try:
+            if not connector.ensure_connected():
+                detail = getattr(connector, "_last_error", "unknown")
+                msg = f"Health check failed [{account_type}]: {detail}"
+                bot_status.mark_disconnected(msg)
+                logger.warning("health_check [%s]: %s", account_type, msg)
+                continue
 
-        account = connector.get_account_info()
-        bot_status.mark_connected(
-            balance=account.balance,
-            equity=account.equity,
-        )
-        logger.debug(
-            "health_check: MT5 ok — balance=%.2f equity=%.2f",
-            account.balance, account.equity,
-        )
+            account = connector.get_account_info()
+            bot_status.mark_connected(
+                balance=account.balance,
+                equity=account.equity,
+            )
+            logger.debug(
+                "health_check [%s]: exchange ok - balance=%.2f equity=%.2f",
+                account_type, account.balance, account.equity,
+            )
 
-    except MT5ConnectorError as exc:
-        bot_status.mark_disconnected(str(exc))
-        logger.error("health_check: MT5ConnectorError: %s", exc)
+        except ConnectorError as exc:
+            bot_status.mark_disconnected(str(exc))
+            logger.error("health_check [%s]: ConnectorError: %s", account_type, exc)
 
-    except Exception as exc:
-        bot_status.mark_disconnected(f"Health check error: {exc}")
-        logger.error("health_check: unexpected error: %s", exc, exc_info=True)
+        except Exception as exc:
+            bot_status.mark_disconnected(f"Health check error: {exc}")
+            logger.error("health_check [%s]: unexpected error: %s", account_type, exc, exc_info=True)

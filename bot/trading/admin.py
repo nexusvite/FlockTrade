@@ -32,6 +32,7 @@ class TradeAdmin(admin.ModelAdmin):
         "id_short",
         "symbol",
         "type",
+        "account_type",
         "entry_price",
         "exit_price",
         "pnl_coloured",
@@ -46,6 +47,7 @@ class TradeAdmin(admin.ModelAdmin):
     list_filter = [
         "symbol",
         "type",
+        "account_type",
         "scout_action",
         "confirmer_action",
         ("entry_time", admin.DateFieldListFilter),
@@ -258,6 +260,7 @@ class DailyStatsAdmin(admin.ModelAdmin):
 
     list_display = [
         "date",
+        "account_type",
         "trades",
         "wins",
         "losses",
@@ -268,6 +271,7 @@ class DailyStatsAdmin(admin.ModelAdmin):
         "best_trade",
         "worst_trade",
     ]
+    list_filter = ["account_type"]
     ordering = ["-date"]
     readonly_fields = ["win_rate_display"]
 
@@ -306,8 +310,9 @@ class BotStatusAdmin(admin.ModelAdmin):
     """
 
     list_display = [
+        "account_type",
         "state_badge",
-        "connected_to_mt5_badge",
+        "connected_to_exchange_badge",
         "account_balance",
         "account_equity",
         "daily_losses",
@@ -320,10 +325,18 @@ class BotStatusAdmin(admin.ModelAdmin):
         "last_health_check",
         "updated_at",
         "state_badge",
-        "connected_to_mt5_badge",
+        "connected_to_exchange_badge",
     ]
 
     fieldsets = (
+        (
+            "Account",
+            {
+                "fields": (
+                    "account_type",
+                )
+            },
+        ),
         (
             "Bot State",
             {
@@ -335,18 +348,18 @@ class BotStatusAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "MT5 Connection",
+            "Exchange Connection",
             {
                 "fields": (
-                    "connected_to_mt5_badge",
-                    "connected_to_mt5",
+                    "connected_to_exchange_badge",
+                    "connected_to_exchange",
                     "last_health_check",
                     "last_error",
                 )
             },
         ),
         (
-            "Account",
+            "Balance",
             {
                 "fields": (
                     "account_balance",
@@ -383,7 +396,7 @@ class BotStatusAdmin(admin.ModelAdmin):
             label, colour = "PAUSED", "#FF9800"
         elif obj.is_circuit_breaker_triggered:
             label, colour = "CIRCUIT BREAKER", "#D32F2F"
-        elif not obj.connected_to_mt5:
+        elif not obj.connected_to_exchange:
             label, colour = "DISCONNECTED", "#F44336"
         else:
             label, colour = "RUNNING", "#4CAF50"
@@ -397,8 +410,8 @@ class BotStatusAdmin(admin.ModelAdmin):
 
     state_badge.short_description = "State"  # type: ignore[attr-defined]
 
-    def connected_to_mt5_badge(self, obj: BotStatus) -> SafeString:
-        if obj.connected_to_mt5:
+    def connected_to_exchange_badge(self, obj: BotStatus) -> SafeString:
+        if obj.connected_to_exchange:
             return format_html(
                 '<span style="color: green; font-weight: bold;">Connected</span>'
             )
@@ -406,11 +419,11 @@ class BotStatusAdmin(admin.ModelAdmin):
             '<span style="color: red; font-weight: bold;">Disconnected</span>'
         )
 
-    connected_to_mt5_badge.short_description = "MT5"  # type: ignore[attr-defined]
+    connected_to_exchange_badge.short_description = "Exchange"  # type: ignore[attr-defined]
 
     def has_add_permission(self, request: HttpRequest) -> bool:
-        """Prevent creating additional BotStatus rows (singleton)."""
-        return not BotStatus.objects.exists()
+        """Allow creating DEMO + REAL status rows."""
+        return BotStatus.objects.count() < 2
 
     def has_delete_permission(
         self, request: HttpRequest, obj: BotStatus | None = None

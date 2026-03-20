@@ -229,7 +229,7 @@ MT5_ACCOUNT = os.environ.get("MT5_ACCOUNT", "")
 MT5_PASSWORD = os.environ.get("MT5_PASSWORD", "")
 MT5_SERVER = os.environ.get("MT5_SERVER", "")
 
-SYMBOLS = os.environ.get("SYMBOLS", "USDJPYm,EURUSDm").split(",")
+SYMBOLS = os.environ.get("SYMBOLS", "BTCUSDT,ETHUSDT").split(",")
 LOT_SIZE_FOREX = float(os.environ.get("LOT_SIZE_FOREX", 1.0))
 LOT_SIZE_GOLD = float(os.environ.get("LOT_SIZE_GOLD", 0.1))
 TP_PIPS_FOREX = int(os.environ.get("TP_PIPS_FOREX", 2))
@@ -252,6 +252,13 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 SCOUT_MODEL = os.environ.get("SCOUT_MODEL", "anthropic/claude-haiku-4.5")
 CONFIRMER_MODEL = os.environ.get("CONFIRMER_MODEL", "anthropic/claude-sonnet-4-6")
 AI_TIMEOUT = int(os.environ.get("AI_TIMEOUT", 15))
+
+# Binance Config
+BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY", "")
+BINANCE_API_SECRET = os.environ.get("BINANCE_API_SECRET", "")
+BINANCE_TESTNET_API_KEY = os.environ.get("BINANCE_TESTNET_API_KEY", "KQKTVnKQPMQO8p5gPBrxTPGBhFU3RHkqscLcaM1x1s8V1rhsrjNymXTNTVwS3q4N")
+BINANCE_TESTNET_API_SECRET = os.environ.get("BINANCE_TESTNET_API_SECRET", "1gHyYaEKZwvHguaNlYuiJxDmSdmDAgAY4yi3Zg7gqurxAO66NLqEweK1gK8r1DUc")
+EXCHANGE = os.environ.get("EXCHANGE", "binance")
 
 # Logging
 LOGGING = {

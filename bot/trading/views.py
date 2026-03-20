@@ -83,6 +83,11 @@ class TradeListView(generics.ListAPIView):
     def get_queryset(self):
         qs = Trade.objects.all()
 
+        # Filter by account type
+        account_type = self.request.query_params.get("account_type")
+        if account_type:
+            qs = qs.filter(account_type=account_type.upper())
+
         # Filter open/closed
         is_open = self.request.query_params.get("is_open")
         if is_open is not None:
@@ -173,8 +178,12 @@ class PerformanceView(APIView):
     def get(self, request: Request) -> Response:
         period = request.query_params.get("period", "30d")
         symbol = request.query_params.get("symbol")
+        account_type = request.query_params.get("account_type")
 
         qs = Trade.objects.filter(exit_time__isnull=False)
+
+        if account_type:
+            qs = qs.filter(account_type=account_type.upper())
 
         # Apply time filter
         now = timezone.now()
@@ -290,7 +299,8 @@ class BotStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        status_obj = BotStatus.objects.get_status()
+        account_type = request.query_params.get("account_type", "DEMO")
+        status_obj = BotStatus.objects.get_status(account_type)
         serializer = BotStatusSerializer(status_obj)
         return Response(serializer.data)
 
@@ -325,27 +335,28 @@ class BotControlView(APIView):
         serializer.is_valid(raise_exception=True)
 
         action = serializer.validated_data["action"]
-        bot_status = BotStatus.objects.get_status()
+        account_type = request.data.get("account_type", "DEMO").upper()
+        bot_status = BotStatus.objects.get_status(account_type)
 
         if action == "pause":
-            BotStatus.objects.filter(pk=1).update(is_paused=True)
-            logger.info("Bot paused by user %s", request.user.username)
-            message = "Bot paused."
+            BotStatus.objects.filter(account_type=account_type).update(is_paused=True)
+            logger.info("Bot [%s] paused by user %s", account_type, request.user.username)
+            message = f"Bot [{account_type}] paused."
 
         elif action == "resume":
-            BotStatus.objects.filter(pk=1).update(is_paused=False)
-            logger.info("Bot resumed by user %s", request.user.username)
-            message = "Bot resumed."
+            BotStatus.objects.filter(account_type=account_type).update(is_paused=False)
+            logger.info("Bot [%s] resumed by user %s", account_type, request.user.username)
+            message = f"Bot [{account_type}] resumed."
 
         elif action == "stop":
-            BotStatus.objects.filter(pk=1).update(is_running=False, is_paused=False)
-            logger.info("Bot stopped by user %s", request.user.username)
-            message = "Bot stopped."
+            BotStatus.objects.filter(account_type=account_type).update(is_running=False, is_paused=False)
+            logger.info("Bot [%s] stopped by user %s", account_type, request.user.username)
+            message = f"Bot [{account_type}] stopped."
 
         elif action == "start":
-            BotStatus.objects.filter(pk=1).update(is_running=True, is_paused=False)
-            logger.info("Bot started by user %s", request.user.username)
-            message = "Bot started."
+            BotStatus.objects.filter(account_type=account_type).update(is_running=True, is_paused=False)
+            logger.info("Bot [%s] started by user %s", account_type, request.user.username)
+            message = f"Bot [{account_type}] started."
 
         else:
             return Response(

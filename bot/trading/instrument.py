@@ -68,10 +68,11 @@ def detect_instrument(symbol: str) -> InstrumentType:
     Detect the InstrumentType from a symbol name.
 
     Strips broker-specific suffixes (e.g. "m" in "USDJPYm", ".r" in
-    "EURUSD.r") before matching.
+    "EURUSD.r") before matching. Also detects Binance-style crypto
+    symbols (BTCUSDT, ETHUSDT, SOLUSDT, etc.) by USDT/USDC/BUSD suffix.
 
     Args:
-        symbol: MT5 symbol name, e.g. "USDJPYm", "XAUUSDm", "EURUSDm".
+        symbol: Symbol name, e.g. "USDJPYm", "XAUUSDm", "BTCUSDT".
 
     Returns:
         InstrumentType enum value.
@@ -88,7 +89,11 @@ def detect_instrument(symbol: str) -> InstrumentType:
         if pattern in clean:
             return InstrumentType.OIL
 
-    # Crypto (check before forex — BTC could appear in unusual pairs)
+    # Crypto — detect by USDT/USDC/BUSD suffix (Binance-style pairs)
+    if clean.endswith(("USDT", "USDC", "BUSD")):
+        return InstrumentType.CRYPTO
+
+    # Crypto — also detect by known base currencies
     for pattern in _CRYPTO_PATTERNS:
         if pattern in clean:
             return InstrumentType.CRYPTO
@@ -133,7 +138,13 @@ def get_pip_size(symbol: str) -> float:
         return 0.01
 
     if instrument == InstrumentType.CRYPTO:
-        return 1.0
+        # High-value crypto (BTC, ETH) use 0.01 pip size;
+        # lower-priced coins use 0.0001
+        _HIGH_VALUE_CRYPTO = {"BTC", "ETH"}
+        for hv in _HIGH_VALUE_CRYPTO:
+            if hv in clean:
+                return 0.01
+        return 0.0001
 
     # Forex — JPY pairs have a different pip size
     if any(jpy in clean for jpy in _JPY_PAIRS):

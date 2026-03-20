@@ -33,6 +33,7 @@ class TradeListSerializer(serializers.ModelSerializer):
             "id",
             "symbol",
             "type",
+            "account_type",
             "entry_price",
             "exit_price",
             "sl",
@@ -77,6 +78,8 @@ class TradeDetailSerializer(serializers.ModelSerializer):
             "id",
             "symbol",
             "type",
+            "account_type",
+            "binance_order_id",
             "entry_price",
             "exit_price",
             "sl",
@@ -223,9 +226,10 @@ class BotStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = BotStatus
         fields = [
+            "account_type",
             "is_running",
             "is_paused",
-            "connected_to_mt5",
+            "connected_to_exchange",
             "last_scan_time",
             "last_health_check",
             "account_balance",
@@ -247,7 +251,7 @@ class BotStatusSerializer(serializers.ModelSerializer):
             return "PAUSED"
         if obj.is_circuit_breaker_triggered:
             return "CIRCUIT_BREAKER"
-        if not obj.connected_to_mt5:
+        if not obj.connected_to_exchange:
             return "DISCONNECTED"
         return "RUNNING"
 
