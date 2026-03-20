@@ -1,18 +1,8 @@
 """
-Add Binance support: account_type fields, rename connected_to_mt5,
-add account_type to DailyStats, add binance_order_id to Trade.
+Add Binance support: account_type fields, rename connected_to_mt5.
+Uses RunSQL with IF NOT EXISTS for safety on re-runs.
 """
-from django.db import migrations, models
-
-
-def migrate_botstatus_data(apps, schema_editor):
-    BotStatus = apps.get_model("trading", "BotStatus")
-    BotStatus.objects.filter(account_type="").update(account_type="DEMO")
-
-
-def migrate_trade_data(apps, schema_editor):
-    Trade = apps.get_model("trading", "Trade")
-    Trade.objects.filter(account_type="").update(account_type="DEMO")
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -22,53 +12,57 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # --- Trade model ---
-        migrations.AddField(
-            model_name="trade",
-            name="account_type",
-            field=models.CharField(
-                choices=[("DEMO", "Demo"), ("REAL", "Real")],
-                db_index=True, default="DEMO", max_length=4,
-            ),
+        # Trade: add account_type and binance_order_id
+        migrations.RunSQL(
+            "ALTER TABLE trades ADD COLUMN IF NOT EXISTS account_type VARCHAR(4) DEFAULT 'DEMO';",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.AddField(
-            model_name="trade",
-            name="binance_order_id",
-            field=models.CharField(blank=True, default="", max_length=50),
+        migrations.RunSQL(
+            "ALTER TABLE trades ADD COLUMN IF NOT EXISTS binance_order_id VARCHAR(50) DEFAULT '';",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RunPython(migrate_trade_data, migrations.RunPython.noop),
-
-        # --- BotStatus model ---
-        migrations.AddField(
-            model_name="botstatus",
-            name="account_type",
-            field=models.CharField(
-                choices=[("DEMO", "Demo"), ("REAL", "Real")],
-                db_index=True, default="DEMO", max_length=4,
-            ),
-        ),
-        migrations.RenameField(
-            model_name="botstatus",
-            old_name="connected_to_mt5",
-            new_name="connected_to_exchange",
-        ),
-        migrations.RunPython(migrate_botstatus_data, migrations.RunPython.noop),
-        migrations.AlterField(
-            model_name="botstatus",
-            name="account_type",
-            field=models.CharField(
-                choices=[("DEMO", "Demo"), ("REAL", "Real")],
-                db_index=True, default="DEMO", max_length=4, unique=True,
-            ),
+        migrations.RunSQL(
+            "CREATE INDEX IF NOT EXISTS trades_account_type_idx ON trades (account_type);",
+            reverse_sql=migrations.RunSQL.noop,
         ),
 
-        # --- DailyStats model ---
-        migrations.AddField(
-            model_name="dailystats",
-            name="account_type",
-            field=models.CharField(
-                choices=[("DEMO", "Demo"), ("REAL", "Real")],
-                db_index=True, default="DEMO", max_length=4,
-            ),
+        # BotStatus: add account_type, rename connected_to_mt5
+        migrations.RunSQL(
+            "ALTER TABLE bot_status ADD COLUMN IF NOT EXISTS account_type VARCHAR(4) DEFAULT 'DEMO';",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunSQL(
+            """DO $$ BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.columns
+                           WHERE table_name='bot_status' AND column_name='connected_to_mt5') THEN
+                    ALTER TABLE bot_status RENAME COLUMN connected_to_mt5 TO connected_to_exchange;
+                END IF;
+            END $$;""",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunSQL(
+            "ALTER TABLE bot_status ADD COLUMN IF NOT EXISTS connected_to_exchange BOOLEAN DEFAULT FALSE;",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunSQL(
+            """DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bot_status_account_type_uniq') THEN
+                    DELETE FROM bot_status WHERE id NOT IN (
+                        SELECT MIN(id) FROM bot_status GROUP BY account_type
+                    );
+                    ALTER TABLE bot_status ADD CONSTRAINT bot_status_account_type_uniq UNIQUE (account_type);
+                END IF;
+            END $$;""",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+
+        # DailyStats: add account_type
+        migrations.RunSQL(
+            "ALTER TABLE daily_stats ADD COLUMN IF NOT EXISTS account_type VARCHAR(4) DEFAULT 'DEMO';",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunSQL(
+            "CREATE INDEX IF NOT EXISTS daily_stats_account_type_idx ON daily_stats (account_type);",
+            reverse_sql=migrations.RunSQL.noop,
         ),
     ]
