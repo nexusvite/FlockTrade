@@ -423,58 +423,40 @@ export default function Settings() {
         />
       </CollapsibleSection>
 
-      {/* Session Hours */}
+      {/* Trading Hours */}
       <CollapsibleSection
-        title="Session Hours (UTC)"
+        title="Trading Hours (UTC)"
         icon={<Clock size={16} className="text-yellow-400" />}
         onSave={() =>
           saveSection("Sessions", {
-            asia_start: parseInt(sessions.asia_start),
-            asia_end: parseInt(sessions.asia_end),
-            london_start: parseInt(sessions.london_start),
-            london_end: parseInt(sessions.london_end),
-            ny_start: parseInt(sessions.ny_start),
-            ny_end: parseInt(sessions.ny_end),
+            asia_start: 0,
+            asia_end: 24,
+            london_start: 0,
+            london_end: 24,
+            ny_start: 0,
+            ny_end: 24,
           })
         }
         saving={saving === "Sessions"}
       >
-        <FieldInput
-          label="Asia Start"
-          value={sessions.asia_start}
-          onChange={(v) => setSessions((s) => ({ ...s, asia_start: v }))}
-          type="number"
-        />
-        <FieldInput
-          label="Asia End"
-          value={sessions.asia_end}
-          onChange={(v) => setSessions((s) => ({ ...s, asia_end: v }))}
-          type="number"
-        />
-        <FieldInput
-          label="London Start"
-          value={sessions.london_start}
-          onChange={(v) => setSessions((s) => ({ ...s, london_start: v }))}
-          type="number"
-        />
-        <FieldInput
-          label="London End"
-          value={sessions.london_end}
-          onChange={(v) => setSessions((s) => ({ ...s, london_end: v }))}
-          type="number"
-        />
-        <FieldInput
-          label="New York Start"
-          value={sessions.ny_start}
-          onChange={(v) => setSessions((s) => ({ ...s, ny_start: v }))}
-          type="number"
-        />
-        <FieldInput
-          label="New York End"
-          value={sessions.ny_end}
-          onChange={(v) => setSessions((s) => ({ ...s, ny_end: v }))}
-          type="number"
-        />
+        <div className="text-sm text-gray-400 mb-3">
+          Crypto markets trade 24/7. Session filters are disabled by default.
+          You can set custom active hours if you only want to trade during specific windows.
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FieldInput
+            label="Active Start Hour"
+            value={sessions.asia_start}
+            onChange={(v) => setSessions((s) => ({ ...s, asia_start: v }))}
+            type="number"
+          />
+          <FieldInput
+            label="Active End Hour"
+            value={sessions.asia_end}
+            onChange={(v) => setSessions((s) => ({ ...s, asia_end: v }))}
+            type="number"
+          />
+        </div>
       </CollapsibleSection>
 
       {/* Trade Defaults */}
