@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../lib/api";
+import { useAuth } from "../hooks/useAuth";
 import { Brain } from "lucide-react";
 
 interface AIDecision {
@@ -16,6 +17,7 @@ interface AIDecision {
 }
 
 export default function AILog() {
+  const { accountType } = useAuth();
   const [decisions, setDecisions] = useState<AIDecision[]>([]);
   const [role, setRole] = useState<string>("");
   const [costs, setCosts] = useState<{
@@ -29,7 +31,7 @@ export default function AILog() {
       setDecisions(r.data.results ?? r.data);
     });
     api.get("/ai/costs/").then((r) => setCosts(r.data)).catch(() => {});
-  }, [role]);
+  }, [role, accountType]);
 
   const actionColor = (action: string) => {
     switch (action) {

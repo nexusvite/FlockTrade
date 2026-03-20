@@ -6,12 +6,15 @@ import {
   type User,
 } from "../lib/auth";
 import { wsClient } from "../lib/websocket";
+import { getAccountType, setAccountType as persistAccountType } from "../lib/api";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  accountType: "DEMO" | "REAL";
+  setAccountType: (t: "DEMO" | "REAL") => void;
 }
 
 export const AuthContext = createContext<AuthState | null>(null);
@@ -19,6 +22,12 @@ export const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accountType, setAccountTypeState] = useState<"DEMO" | "REAL">(getAccountType());
+
+  const setAccountType = useCallback((t: "DEMO" | "REAL") => {
+    persistAccountType(t);
+    setAccountTypeState(t);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -53,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, accountType, setAccountType }}>
       {children}
     </AuthContext.Provider>
   );

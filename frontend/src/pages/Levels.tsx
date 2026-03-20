@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../lib/api";
+import { useAuth } from "../hooks/useAuth";
 
 interface SRLevel {
   id: string;
@@ -13,6 +14,7 @@ interface SRLevel {
 }
 
 export default function Levels() {
+  const { accountType } = useAuth();
   const [levels, setLevels] = useState<SRLevel[]>([]);
   const [symbol, setSymbol] = useState("");
 
@@ -21,7 +23,7 @@ export default function Levels() {
     api.get("/levels/", { params }).then((r) => {
       setLevels(r.data.results ?? r.data);
     });
-  }, [symbol]);
+  }, [symbol, accountType]);
 
   const strengthColor = (s: number) => {
     if (s >= 7) return "text-red-400 bg-red-900/30";
@@ -39,8 +41,10 @@ export default function Levels() {
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm"
         >
           <option value="">All Symbols</option>
-          <option value="USDJPYm">USDJPY</option>
-          <option value="EURUSDm">EURUSD</option>
+          <option value="BTCUSDT">BTCUSDT</option>
+          <option value="ETHUSDT">ETHUSDT</option>
+          <option value="BNBUSDT">BNBUSDT</option>
+          <option value="SOLUSDT">SOLUSDT</option>
         </select>
       </div>
 

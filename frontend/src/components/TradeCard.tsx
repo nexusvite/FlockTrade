@@ -14,6 +14,8 @@ interface Trade {
   scout_confidence: number;
   confirmer_action: string;
   confirmer_confidence: number;
+  account_type?: string;
+  binance_order_id?: string;
 }
 
 export function TradeCard({ trade }: { trade: Trade }) {
@@ -77,8 +79,13 @@ export function TradeCard({ trade }: { trade: Trade }) {
         </div>
       </div>
 
-      <div className="mt-2 text-xs text-gray-500">
-        {new Date(trade.entry_time).toLocaleString()}
+      <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+        <span>{new Date(trade.entry_time).toLocaleString()}</span>
+        {trade.binance_order_id && (
+          <span className="font-mono text-gray-600 truncate ml-2" title={trade.binance_order_id}>
+            #{trade.binance_order_id.slice(-8)}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -22,13 +22,39 @@ const links = [
 ];
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout, accountType, setAccountType } = useAuth();
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
       <div className="p-6 border-b border-gray-800">
         <h1 className="text-xl font-bold text-blue-400">FlockTrade</h1>
-        <p className="text-xs text-gray-500 mt-1">AI Trading Platform</p>
+        <p className="text-xs text-gray-500 mt-1">AI Crypto Trading</p>
+      </div>
+
+      {/* Account Type Toggle */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex bg-gray-800 rounded-lg p-0.5">
+          <button
+            onClick={() => setAccountType("DEMO")}
+            className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${
+              accountType === "DEMO"
+                ? "bg-yellow-600 text-white"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            DEMO
+          </button>
+          <button
+            onClick={() => setAccountType("REAL")}
+            className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${
+              accountType === "REAL"
+                ? "bg-green-600 text-white"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            REAL
+          </button>
+        </div>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">

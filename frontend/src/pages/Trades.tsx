@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import api from "../lib/api";
+import { useAuth } from "../hooks/useAuth";
 import { TradeCard } from "../components/TradeCard";
 
 export default function Trades() {
+  const { accountType } = useAuth();
   const [trades, setTrades] = useState<never[]>([]);
   const [filter, setFilter] = useState<"all" | "open" | "closed">("all");
   const [page, setPage] = useState(1);
@@ -17,7 +19,7 @@ export default function Trades() {
       setTrades(r.data.results ?? r.data);
       setHasNext(!!r.data.next);
     });
-  }, [filter, page]);
+  }, [filter, page, accountType]);
 
   return (
     <div className="space-y-6">
@@ -44,8 +46,21 @@ export default function Trades() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {trades.map((trade: { id: string }) => (
-          <TradeCard key={trade.id} trade={trade as never} />
+        {trades.map((trade: { id: string; account_type?: string; binance_order_id?: string }) => (
+          <div key={trade.id} className="relative">
+            {trade.account_type && (
+              <span
+                className={`absolute top-2 right-2 z-10 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                  trade.account_type === "DEMO"
+                    ? "bg-yellow-900/50 text-yellow-400"
+                    : "bg-green-900/50 text-green-400"
+                }`}
+              >
+                {trade.account_type}
+              </span>
+            )}
+            <TradeCard trade={trade as never} />
+          </div>
         ))}
       </div>
 

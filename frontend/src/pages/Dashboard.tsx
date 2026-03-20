@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../lib/api";
+import { useAuth } from "../hooks/useAuth";
 import { TradeCard } from "../components/TradeCard";
 import { PnLChart } from "../components/PnLChart";
 import { LiveFeed } from "../components/LiveFeed";
@@ -15,15 +16,16 @@ import {
 interface BotStatus {
   is_running: boolean;
   is_paused: boolean;
-  connected_to_mt5: boolean;
+  connected_to_exchange: boolean;
   account_balance: number;
   account_equity: number;
   last_scan_time: string | null;
 }
 
-const fmt = (v: unknown, d = 2) => v != null ? Number(v).toFixed(d) : "—";
+const fmt = (v: unknown, d = 2) => v != null ? Number(v).toFixed(d) : "\u2014";
 
 export default function Dashboard() {
+  const { accountType } = useAuth();
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [trades, setTrades] = useState<never[]>([]);
   const [stats, setStats] = useState<never[]>([]);
@@ -45,7 +47,7 @@ export default function Dashboard() {
     });
 
     api.get("/daily-stats/").then((r) => setStats(r.data.results ?? r.data)).catch(() => {});
-  }, []);
+  }, [accountType]);
 
   const cards = [
     {
@@ -67,10 +69,10 @@ export default function Dashboard() {
       color: "text-purple-400",
     },
     {
-      label: "MT5 Status",
-      value: status?.connected_to_mt5 ? "Connected" : "Disconnected",
-      icon: status?.connected_to_mt5 ? Wifi : WifiOff,
-      color: status?.connected_to_mt5 ? "text-profit" : "text-loss",
+      label: "Binance",
+      value: status?.connected_to_exchange ? "Connected" : "Disconnected",
+      icon: status?.connected_to_exchange ? Wifi : WifiOff,
+      color: status?.connected_to_exchange ? "text-profit" : "text-loss",
     },
   ];
 
@@ -78,22 +80,33 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Dashboard</h2>
-        <div className="flex items-center gap-2">
-          <Activity
-            size={14}
-            className={
-              status?.is_running && !status.is_paused
-                ? "text-profit animate-pulse"
-                : "text-gray-500"
-            }
-          />
-          <span className="text-sm text-gray-400">
-            {status?.is_paused
-              ? "Paused"
-              : status?.is_running
-                ? "Running"
-                : "Stopped"}
+        <div className="flex items-center gap-3">
+          <span
+            className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+              accountType === "DEMO"
+                ? "bg-yellow-900/50 text-yellow-400 border border-yellow-700"
+                : "bg-green-900/50 text-green-400 border border-green-700"
+            }`}
+          >
+            {accountType}
           </span>
+          <div className="flex items-center gap-2">
+            <Activity
+              size={14}
+              className={
+                status?.is_running && !status.is_paused
+                  ? "text-profit animate-pulse"
+                  : "text-gray-500"
+              }
+            />
+            <span className="text-sm text-gray-400">
+              {status?.is_paused
+                ? "Paused"
+                : status?.is_running
+                  ? "Running"
+                  : "Stopped"}
+            </span>
+          </div>
         </div>
       </div>
 

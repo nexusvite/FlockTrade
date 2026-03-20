@@ -18,12 +18,11 @@ import { CollapsibleSection } from "../components/settings/CollapsibleSection";
 import { FieldInput } from "../components/settings/FieldInput";
 
 interface GlobalConfig {
-  mt5_broker: string;
-  mt5_account: string;
-  mt5_password: string;
-  mt5_server: string;
-  mt5_host: string;
-  mt5_port: number;
+  exchange: string;
+  binance_api_key: string;
+  binance_api_secret: string;
+  binance_testnet_api_key: string;
+  binance_testnet_api_secret: string;
   openrouter_api_key: string;
   scout_model: string;
   confirmer_model: string;
@@ -36,12 +35,12 @@ interface GlobalConfig {
   london_end: number;
   ny_start: number;
   ny_end: number;
-  lot_size_forex: string;
-  lot_size_gold: string;
-  tp_pips_forex: number;
-  sl_pips_forex: number;
-  tp_pips_gold: number;
-  sl_pips_gold: number;
+  order_quantity_btc: string;
+  order_quantity_eth: string;
+  tp_pct_btc: string;
+  sl_pct_btc: string;
+  tp_pct_eth: string;
+  sl_pct_eth: string;
 }
 
 interface SymbolRow {
@@ -69,13 +68,11 @@ export default function Settings() {
   const [message, setMessage] = useState("");
 
   // Editable copies (strings for input binding)
-  const [mt5, setMt5] = useState({
-    mt5_broker: "",
-    mt5_account: "",
-    mt5_password: "",
-    mt5_server: "",
-    mt5_host: "",
-    mt5_port: "",
+  const [binance, setBinance] = useState({
+    binance_api_key: "",
+    binance_api_secret: "",
+    binance_testnet_api_key: "",
+    binance_testnet_api_secret: "",
   });
   const [ai, setAi] = useState({
     openrouter_api_key: "",
@@ -96,15 +93,18 @@ export default function Settings() {
     ny_end: "",
   });
   const [defaults, setDefaults] = useState({
-    lot_size_forex: "",
-    lot_size_gold: "",
-    tp_pips_forex: "",
-    sl_pips_forex: "",
-    tp_pips_gold: "",
-    sl_pips_gold: "",
+    order_quantity_btc: "",
+    order_quantity_eth: "",
+    tp_pct_btc: "",
+    sl_pct_btc: "",
+    tp_pct_eth: "",
+    sl_pct_eth: "",
   });
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [showRealKey, setShowRealKey] = useState(false);
+  const [showRealSecret, setShowRealSecret] = useState(false);
+  const [showTestKey, setShowTestKey] = useState(false);
+  const [showTestSecret, setShowTestSecret] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [newSymbol, setNewSymbol] = useState("");
 
@@ -115,13 +115,11 @@ export default function Settings() {
       .then((r) => {
         const g = r.data.global;
         setGc(g);
-        setMt5({
-          mt5_broker: g.mt5_broker ?? "custom",
-          mt5_account: g.mt5_account ?? "",
-          mt5_password: g.mt5_password ?? "",
-          mt5_server: g.mt5_server ?? "",
-          mt5_host: g.mt5_host ?? "",
-          mt5_port: String(g.mt5_port ?? 8001),
+        setBinance({
+          binance_api_key: g.binance_api_key ?? "",
+          binance_api_secret: g.binance_api_secret ?? "",
+          binance_testnet_api_key: g.binance_testnet_api_key ?? "",
+          binance_testnet_api_secret: g.binance_testnet_api_secret ?? "",
         });
         setAi({
           openrouter_api_key: g.openrouter_api_key ?? "",
@@ -142,12 +140,12 @@ export default function Settings() {
           ny_end: String(g.ny_end ?? 20),
         });
         setDefaults({
-          lot_size_forex: String(g.lot_size_forex ?? "1.0"),
-          lot_size_gold: String(g.lot_size_gold ?? "0.1"),
-          tp_pips_forex: String(g.tp_pips_forex ?? 2),
-          sl_pips_forex: String(g.sl_pips_forex ?? 5),
-          tp_pips_gold: String(g.tp_pips_gold ?? 20),
-          sl_pips_gold: String(g.sl_pips_gold ?? 50),
+          order_quantity_btc: String(g.order_quantity_btc ?? g.lot_size_forex ?? "0.001"),
+          order_quantity_eth: String(g.order_quantity_eth ?? g.lot_size_gold ?? "0.01"),
+          tp_pct_btc: String(g.tp_pct_btc ?? g.tp_pips_forex ?? "2"),
+          sl_pct_btc: String(g.sl_pct_btc ?? g.sl_pips_forex ?? "1"),
+          tp_pct_eth: String(g.tp_pct_eth ?? g.tp_pips_gold ?? "2"),
+          sl_pct_eth: String(g.sl_pct_eth ?? g.sl_pips_gold ?? "1"),
         });
         setSymbols(r.data.symbols ?? []);
       })
@@ -215,6 +213,44 @@ export default function Settings() {
     }
   }
 
+  function MaskedField({
+    label,
+    value,
+    onChange,
+    show,
+    onToggle,
+    placeholder,
+  }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    show: boolean;
+    onToggle: () => void;
+    placeholder?: string;
+  }) {
+    return (
+      <div>
+        <label className="block text-xs text-gray-400 mb-1">{label}</label>
+        <div className="relative">
+          <input
+            type={show ? "text" : "password"}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none pr-10"
+            placeholder={placeholder}
+          />
+          <button
+            type="button"
+            onClick={onToggle}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+          >
+            {show ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 max-w-3xl">
       <h2 className="text-2xl font-bold">Bot Settings</h2>
@@ -253,73 +289,60 @@ export default function Settings() {
         </button>
       </div>
 
-      {/* MT5 Connection */}
+      {/* Binance Connection */}
       <CollapsibleSection
-        title="MT5 Connection"
+        title="Binance Connection"
         icon={<Server size={16} className="text-blue-400" />}
         onSave={() =>
-          saveSection("MT5", {
-            mt5_broker: mt5.mt5_broker,
-            mt5_account: mt5.mt5_account,
-            mt5_password: mt5.mt5_password,
-            mt5_server: mt5.mt5_server,
-            mt5_host: mt5.mt5_host,
-            mt5_port: parseInt(mt5.mt5_port) || 8001,
+          saveSection("Binance", {
+            binance_api_key: binance.binance_api_key,
+            binance_api_secret: binance.binance_api_secret,
+            binance_testnet_api_key: binance.binance_testnet_api_key,
+            binance_testnet_api_secret: binance.binance_testnet_api_secret,
           })
         }
-        saving={saving === "MT5"}
+        saving={saving === "Binance"}
         defaultOpen
       >
-        <div>
-          <label className="block text-xs text-gray-400 mb-1">Broker</label>
-          <select
-            value={mt5.mt5_broker}
-            onChange={(e) => setMt5((s) => ({ ...s, mt5_broker: e.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          >
-            <option value="exness">Exness</option>
-            <option value="ftmo">FTMO</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-        <FieldInput
-          label="Account"
-          value={mt5.mt5_account}
-          onChange={(v) => setMt5((s) => ({ ...s, mt5_account: v }))}
-        />
-        <div>
-          <label className="block text-xs text-gray-400 mb-1">Password</label>
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={mt5.mt5_password}
-              onChange={(e) => setMt5((s) => ({ ...s, mt5_password: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-            >
-              {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
+        <div className="sm:col-span-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-gray-300 bg-gray-700 px-2 py-0.5 rounded">Exchange</span>
+            <span className="text-xs text-blue-400">Binance</span>
           </div>
         </div>
-        <FieldInput
-          label="Server"
-          value={mt5.mt5_server}
-          onChange={(v) => setMt5((s) => ({ ...s, mt5_server: v }))}
+        <div className="sm:col-span-2 border-b border-gray-700/50 pb-3 mb-1">
+          <p className="text-xs font-semibold text-green-400 mb-2">Real (Mainnet)</p>
+        </div>
+        <MaskedField
+          label="API Key"
+          value={binance.binance_api_key}
+          onChange={(v) => setBinance((s) => ({ ...s, binance_api_key: v }))}
+          show={showRealKey}
+          onToggle={() => setShowRealKey(!showRealKey)}
         />
-        <FieldInput
-          label="Host"
-          value={mt5.mt5_host}
-          onChange={(v) => setMt5((s) => ({ ...s, mt5_host: v }))}
+        <MaskedField
+          label="API Secret"
+          value={binance.binance_api_secret}
+          onChange={(v) => setBinance((s) => ({ ...s, binance_api_secret: v }))}
+          show={showRealSecret}
+          onToggle={() => setShowRealSecret(!showRealSecret)}
         />
-        <FieldInput
-          label="Port"
-          value={mt5.mt5_port}
-          onChange={(v) => setMt5((s) => ({ ...s, mt5_port: v }))}
-          type="number"
+        <div className="sm:col-span-2 border-b border-gray-700/50 pb-3 mb-1 mt-2">
+          <p className="text-xs font-semibold text-yellow-400 mb-2">Demo (Testnet)</p>
+        </div>
+        <MaskedField
+          label="Testnet API Key"
+          value={binance.binance_testnet_api_key}
+          onChange={(v) => setBinance((s) => ({ ...s, binance_testnet_api_key: v }))}
+          show={showTestKey}
+          onToggle={() => setShowTestKey(!showTestKey)}
+        />
+        <MaskedField
+          label="Testnet API Secret"
+          value={binance.binance_testnet_api_secret}
+          onChange={(v) => setBinance((s) => ({ ...s, binance_testnet_api_secret: v }))}
+          show={showTestSecret}
+          onToggle={() => setShowTestSecret(!showTestSecret)}
         />
       </CollapsibleSection>
 
@@ -454,56 +477,56 @@ export default function Settings() {
         />
       </CollapsibleSection>
 
-      {/* Instrument Defaults */}
+      {/* Trade Defaults */}
       <CollapsibleSection
-        title="Instrument Defaults"
+        title="Trade Defaults"
         icon={<BarChart3 size={16} className="text-green-400" />}
         onSave={() =>
           saveSection("Defaults", {
-            lot_size_forex: parseFloat(defaults.lot_size_forex),
-            lot_size_gold: parseFloat(defaults.lot_size_gold),
-            tp_pips_forex: parseInt(defaults.tp_pips_forex),
-            sl_pips_forex: parseInt(defaults.sl_pips_forex),
-            tp_pips_gold: parseInt(defaults.tp_pips_gold),
-            sl_pips_gold: parseInt(defaults.sl_pips_gold),
+            order_quantity_btc: parseFloat(defaults.order_quantity_btc),
+            order_quantity_eth: parseFloat(defaults.order_quantity_eth),
+            tp_pct_btc: parseFloat(defaults.tp_pct_btc),
+            sl_pct_btc: parseFloat(defaults.sl_pct_btc),
+            tp_pct_eth: parseFloat(defaults.tp_pct_eth),
+            sl_pct_eth: parseFloat(defaults.sl_pct_eth),
           })
         }
         saving={saving === "Defaults"}
       >
         <FieldInput
-          label="Forex Lot Size"
-          value={defaults.lot_size_forex}
-          onChange={(v) => setDefaults((s) => ({ ...s, lot_size_forex: v }))}
+          label="BTC Order Qty"
+          value={defaults.order_quantity_btc}
+          onChange={(v) => setDefaults((s) => ({ ...s, order_quantity_btc: v }))}
           type="number"
         />
         <FieldInput
-          label="Gold Lot Size"
-          value={defaults.lot_size_gold}
-          onChange={(v) => setDefaults((s) => ({ ...s, lot_size_gold: v }))}
+          label="ETH Order Qty"
+          value={defaults.order_quantity_eth}
+          onChange={(v) => setDefaults((s) => ({ ...s, order_quantity_eth: v }))}
           type="number"
         />
         <FieldInput
-          label="Forex TP (pips)"
-          value={defaults.tp_pips_forex}
-          onChange={(v) => setDefaults((s) => ({ ...s, tp_pips_forex: v }))}
+          label="BTC TP (%)"
+          value={defaults.tp_pct_btc}
+          onChange={(v) => setDefaults((s) => ({ ...s, tp_pct_btc: v }))}
           type="number"
         />
         <FieldInput
-          label="Forex SL (pips)"
-          value={defaults.sl_pips_forex}
-          onChange={(v) => setDefaults((s) => ({ ...s, sl_pips_forex: v }))}
+          label="BTC SL (%)"
+          value={defaults.sl_pct_btc}
+          onChange={(v) => setDefaults((s) => ({ ...s, sl_pct_btc: v }))}
           type="number"
         />
         <FieldInput
-          label="Gold TP (pips)"
-          value={defaults.tp_pips_gold}
-          onChange={(v) => setDefaults((s) => ({ ...s, tp_pips_gold: v }))}
+          label="ETH TP (%)"
+          value={defaults.tp_pct_eth}
+          onChange={(v) => setDefaults((s) => ({ ...s, tp_pct_eth: v }))}
           type="number"
         />
         <FieldInput
-          label="Gold SL (pips)"
-          value={defaults.sl_pips_gold}
-          onChange={(v) => setDefaults((s) => ({ ...s, sl_pips_gold: v }))}
+          label="ETH SL (%)"
+          value={defaults.sl_pct_eth}
+          onChange={(v) => setDefaults((s) => ({ ...s, sl_pct_eth: v }))}
           type="number"
         />
       </CollapsibleSection>
@@ -523,9 +546,9 @@ export default function Settings() {
                 <th className="px-4 py-2 text-left">Symbol</th>
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-center">Enabled</th>
-                <th className="px-4 py-2 text-right">Lot Size</th>
-                <th className="px-4 py-2 text-right">TP Pips</th>
-                <th className="px-4 py-2 text-right">SL Pips</th>
+                <th className="px-4 py-2 text-right">Qty</th>
+                <th className="px-4 py-2 text-right">TP %</th>
+                <th className="px-4 py-2 text-right">SL %</th>
                 <th className="px-4 py-2 text-right">Max Spread</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -550,7 +573,7 @@ export default function Settings() {
                   <td className="px-4 py-2">
                     <input
                       type="number"
-                      step="0.01"
+                      step="0.001"
                       value={row.lot_size ?? ""}
                       placeholder="default"
                       onChange={(e) =>
@@ -573,6 +596,7 @@ export default function Settings() {
                   <td className="px-4 py-2">
                     <input
                       type="number"
+                      step="0.1"
                       value={row.tp_pips ?? ""}
                       placeholder="default"
                       onChange={(e) =>
@@ -591,6 +615,7 @@ export default function Settings() {
                   <td className="px-4 py-2">
                     <input
                       type="number"
+                      step="0.1"
                       value={row.sl_pips ?? ""}
                       placeholder="default"
                       onChange={(e) =>
@@ -650,7 +675,7 @@ export default function Settings() {
             type="text"
             value={newSymbol}
             onChange={(e) => setNewSymbol(e.target.value.toUpperCase())}
-            placeholder="e.g. GBPUSDm"
+            placeholder="e.g. BTCUSDT"
             className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none w-40"
             onKeyDown={(e) => e.key === "Enter" && addSymbol()}
           />
