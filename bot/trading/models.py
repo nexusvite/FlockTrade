@@ -158,8 +158,7 @@ class DailyStats(models.Model):
         DEMO = "DEMO", "Demo"
         REAL = "REAL", "Real"
 
-    id = models.AutoField(primary_key=True)
-    date = models.DateField(db_index=True)
+    date = models.DateField(primary_key=True)
     account_type = models.CharField(
         max_length=4, choices=AccountType.choices, default="DEMO", db_index=True,
     )
@@ -179,10 +178,6 @@ class DailyStats(models.Model):
     class Meta:
         db_table = "daily_stats"
         ordering = ["-date"]
-        unique_together = [("date", "account_type")]
-        indexes = [
-            models.Index(fields=["date", "account_type"]),
-        ]
 
     def __str__(self) -> str:
         return f"DailyStats {self.date} [{self.account_type}]: {self.wins}W/{self.losses}L PnL={self.pnl}"
